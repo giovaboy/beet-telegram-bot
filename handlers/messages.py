@@ -52,18 +52,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
             await update.message.reply_text(t('import.as_is'))
             try:
                 beet_path = manager.translate_path_for_beet(manager.current_import['path'])
-                # Use the 'as-is' flag -A
-                beet_cmd = ['beet', 'import', '-A', beet_path]
+                beet_cmd = ['beet', 'import', beet_path]
                 
                 if BEET_CONTAINER:
-                    cmd = ['docker', 'exec']
+                    cmd = ['docker', 'exec', '-i']
                     if BEET_USER:
                         cmd.extend(['-u', BEET_USER])
                     cmd.extend([BEET_CONTAINER] + beet_cmd)
                 else:
                     cmd = beet_cmd
                 
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                result = subprocess.run(cmd, input='U\n', capture_output=True, text=True, timeout=300)
                 
                 if result.returncode == 0:
                     # Cleanup old message before confirming

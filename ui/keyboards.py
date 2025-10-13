@@ -8,7 +8,7 @@ def create_directory_list_keyboard(dirs):
     """Creates keyboard with directory list"""
     keyboard = []
     
-    for i, d in enumerate(dirs[:10]):
+    for i, d in enumerate(dirs[:100]):
         size = sum(f.stat().st_size for f in d.rglob('*') if f.is_file())
         size_mb = size / (1024 * 1024)
         

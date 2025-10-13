@@ -287,6 +287,7 @@ MIT License - Free to use!
 ## 🙏 Credits
 
 - [Beets](https://beets.io/) - Music library manager
+- [linuxerver.io](https://docs.linuxserver.io/images/docker-beets/) - linuxerver.io docker image
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
 - MusicBrainz & Discogs for metadata
 

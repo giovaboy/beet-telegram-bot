@@ -1,5 +1,7 @@
 # 🎵 Beet Telegram Bot
 
+<img src='beet-telegram-bot.jpg' alt='logo'>
+
 Interactive Telegram bot for managing music imports with Beets.
 
 ## 📁 Project Structure

@@ -1,292 +1,292 @@
 # 🎵 Beet Telegram Bot
 
-Bot Telegram per gestire import musicali con Beets in modo interattivo.
+Interactive Telegram bot for managing music imports with Beets.
 
-## 📁 Struttura del progetto
+## 📁 Project Structure
 
 ```
 beet-telegram-bot/
-├── bot.py # Entry point
-├── config.py # Configurazione
-├── requirements.txt # Dipendenze Python
-├── Dockerfile # Immagine Docker
-├── docker-compose.yml # Orchestrazione
-├── .env # Variabili ambiente
+├── bot.py                      # Entry point
+├── config.py                   # Configuration
+├── requirements.txt            # Python dependencies
+├── Dockerfile                  # Docker image
+├── docker-compose.yml          # Orchestration
+├── .env                        # Environment variables
 │
-├── core/ # Logica business
-│ ├── beet_manager.py # Manager principale
-│ ├── directory_analyzer.py # Analisi directory
-│ └── parsers.py # Parse output beet
+├── core/                       # Business logic
+│   ├── beet_manager.py        # Main manager
+│   ├── directory_analyzer.py  # Directory analysis
+│   └── parsers.py             # Beet output parsing
 │
-├── handlers/ # Handler Telegram
-│ ├── commands.py # Comandi (/start, /list, etc.)
-│ ├── callbacks.py # Bottoni inline
-│ └── messages.py # Input utente
+├── handlers/                   # Telegram handlers
+│   ├── commands.py            # Commands (/start, /list, etc.)
+│   ├── callbacks.py           # Inline buttons
+│   └── messages.py            # User input
 │
-├── ui/ # Interfaccia utente
-│ ├── keyboards.py # Creazione tastiere
-│ └── messages.py # Formattazione messaggi
+├── ui/                         # User interface
+│   ├── keyboards.py           # Keyboard creation
+│   └── messages.py            # Message formatting
 │
-├── i18n/ # Internazionalizzazione
-│ ├── translations.py # Sistema traduzione
-│ └── locales/
-│ ├── it.json # Italiano
-│ └── en.json # Inglese
+├── i18n/                       # Internationalization
+│   ├── translations.py        # Translation system
+│   └── locales/
+│       ├── it.json            # Italian
+│       └── en.json            # English
 │
-└── bot_state/ # Dati persistenti (creato automaticamente)
+└── bot_state/                  # Persistent data (auto-created)
 ```
 
 ## 🚀 Quick Start
 
-### 1. Crea il bot Telegram
+### 1. Create Telegram Bot
 
 ```bash
-# Parla con @BotFather su Telegram
+# Talk to @BotFather on Telegram
 /newbot
-# Salva il token
+# Save the token
 
-# Ottieni il tuo Chat ID da @userinfobot
+# Get your Chat ID from @userinfobot
 ```
 
-### 2. Clona e configura
+### 2. Clone and Configure
 
 ```bash
 mkdir ~/beet-telegram-bot
 cd ~/beet-telegram-bot
 
-# Crea tutti i file della struttura
-# (copia i contenuti dagli artifacts)
+# Create all files from the structure
+# (copy contents from artifacts)
 ```
 
-### 3. Configura `.env`
+### 3. Configure `.env`
 
 ```env
-TELEGRAM_BOT_TOKEN=il_tuo_token
-TELEGRAM_CHAT_ID=il_tuo_chat_id
+TELEGRAM_BOT_TOKEN=your_token_here
+TELEGRAM_CHAT_ID=your_chat_id
 BEET_CONTAINER=beets
 BEET_USER=abc
-LANGUAGE=it
+LANGUAGE=en
 PUID=1000
 PGID=1000
-TZ=Europe/Rome
+TZ=America/New_York
 ```
 
-### 4. Modifica `docker-compose.yml`
+### 4. Edit `docker-compose.yml`
 
 ```yaml
 volumes:
-- /home/user/imports:/downloads # Path reale
-- /home/user/Music:/music:ro
+  - /home/user/imports:/downloads  # Actual path
+  - /home/user/Music:/music:ro
 ```
 
-### 5. Avvia
+### 5. Start
 
 ```bash
 docker-compose up -d --build
 docker-compose logs -f
 ```
 
-## 🌍 Lingue supportate
+## 🌍 Supported Languages
 
-- 🇮🇹 **Italiano** (`LANGUAGE=it`)
-- 🇬🇧 **Inglese** (`LANGUAGE=en`)
+- 🇬🇧 **English** (`LANGUAGE=en`)
+- 🇮🇹 **Italian** (`LANGUAGE=it`)
 
-Cambia lingua nel file `.env` e riavvia:
+Change language in `.env` file and restart:
 
 ```bash
 docker-compose restart
 ```
 
-## 📋 Comandi disponibili
+## 📋 Available Commands
 
-- `/start` - Avvia il bot
-- `/list` - Mostra directory da importare
-- `/status` - Stato import corrente
-- `/cancel` - Annulla import corrente
+- `/start` - Start the bot
+- `/list` - Show directories to import
+- `/status` - Current import status
+- `/cancel` - Cancel current import
 
-## ✨ Funzionalità
+## ✨ Features
 
-### 📂 Gestione directory
-- Lista directory con dimensione
-- Analisi struttura (singolo/multi-disco)
-- Visualizzazione file audio
-- Anteprima immagini (copertine)
-- Eliminazione directory
+### 📂 Directory Management
+- List directories with size
+- Structure analysis (single/multi-disc)
+- Audio file visualization
+- Image preview (cover art)
+- Directory deletion
 
-### 🔍 Ricerca
-- Link diretti a MusicBrainz
-- Link diretti a Discogs
-- Query automatica dal nome directory
+### 🔍 Search
+- Direct links to MusicBrainz
+- Direct links to Discogs
+- Automatic query from directory name
 
 ### 🎵 Import
-- Import automatico
-- Selezione candidati
-- Import con MusicBrainz ID
-- Import con Discogs ID
-- Import as-is (senza metadata)
-- Forza primo match
+- Automatic import
+- Candidate selection
+- Import with MusicBrainz ID
+- Import with Discogs ID
+- As-is import (without metadata)
+- Force first match
 
-### 💾 Persistenza
-- Stato import salvato
-- Riprendi dopo riavvio
+### 💾 Persistence
+- Saved import state
+- Resume after restart
 
-## 🔧 Configurazione avanzata
+## 🔧 Advanced Configuration
 
-### Path diversi tra bot e beet
+### Different Paths Between Bot and Beet
 
-Se il container beet vede un path diverso:
+If the beet container sees a different path:
 
 ```env
-# Nel .env
+# In .env
 BEET_IMPORT_PATH=/config/imports
 ```
 
 ### Logging
 
 ```env
-LOG_LEVEL=DEBUG # INFO, WARNING, ERROR
+LOG_LEVEL=DEBUG  # INFO, WARNING, ERROR
 ```
 
-### Network Docker
+### Docker Network
 
-Se beet è su una network esistente:
+If beet is on an existing network:
 
 ```yaml
 networks:
-beet-network:
-external: true
-name: nome_network_esistente
+  beet-network:
+    external: true
+    name: existing_network_name
 ```
 
-## 🛠️ Sviluppo
+## 🛠️ Development
 
-### Aggiungere una nuova lingua
+### Adding a New Language
 
-1. Crea `i18n/locales/fr.json` (esempio francese)
-2. Copia la struttura da `it.json`
-3. Traduci tutte le stringhe
-4. Imposta `LANGUAGE=fr` nel `.env`
+1. Create `i18n/locales/fr.json` (e.g., French)
+2. Copy structure from `en.json`
+3. Translate all strings
+4. Set `LANGUAGE=fr` in `.env`
 
-### Modificare il codice
+### Modifying Code
 
 ```bash
-# Modifica i file
+# Edit files
 nano core/beet_manager.py
 
-# Rebuild e riavvia
+# Rebuild and restart
 docker-compose down
 docker-compose up -d --build
 ```
 
-### Testare in locale (senza Docker)
+### Testing Locally (Without Docker)
 
 ```bash
-# Installa dipendenze
+# Install dependencies
 pip install -r requirements.txt
 
-# Esporta variabili
+# Export variables
 export TELEGRAM_BOT_TOKEN=...
-export LANGUAGE=it
+export LANGUAGE=en
 
-# Avvia
+# Start
 python bot.py
 ```
 
 ## 🐛 Troubleshooting
 
-### Bot non risponde
+### Bot Not Responding
 
 ```bash
 docker-compose logs beet-bot
 ```
 
-### Errore connessione a beet
+### Beet Connection Error
 
 ```bash
-# Verifica container
+# Check container
 docker ps | grep beet
 
-# Testa comando
+# Test command
 docker exec -u abc beets beet version
 ```
 
-### Permessi file
+### File Permissions
 
 ```bash
 sudo chown -R 1000:1000 /path/to/imports
 ```
 
-### Import si blocca
+### Import Hangs
 
-Aumenta timeout in `core/beet_manager.py`:
+Increase timeout in `core/beet_manager.py`:
 
 ```python
-result = subprocess.run(..., timeout=300) # 5 minuti
+result = subprocess.run(..., timeout=300)  # 5 minutes
 ```
 
-## 📊 Esempi di utilizzo
+## 📊 Usage Examples
 
-### Workflow base
+### Basic Workflow
 
-1. Copi album in `/imports/`
-2. `/list` su Telegram
-3. Selezioni directory
-4. Vedi dettagli e immagini
-5. Click "▶️ Avvia Import"
-6. Se serve, inserisci MusicBrainz ID
-7. ✅ Completato!
+1. Copy album to `/imports/`
+2. `/list` on Telegram
+3. Select directory
+4. View details and images
+5. Click "▶️ Start Import"
+6. If needed, enter MusicBrainz ID
+7. ✅ Done!
 
-### Import con ID
+### Import with ID
 
-1. Album non riconosciuto
-2. Click "🔍 Cerca MusicBrainz"
-3. Trovi l'ID: `abc123...`
+1. Album not recognized
+2. Click "🔍 Search MusicBrainz"
+3. Find the ID: `abc123...`
 4. Click "🔍 MusicBrainz ID"
-5. Incolli l'ID
-6. ✅ Import con metadata corretti!
+5. Paste the ID
+6. ✅ Import with correct metadata!
 
-### Multi-disco
+### Multi-Disc
 
 ```
 /imports/The_Wall/
-├── CD1/ (13 tracce)
-├── CD2/ (13 tracce)
+├── CD1/        (13 tracks)
+├── CD2/        (13 tracks)
 └── cover.jpg
 ```
 
-Il bot rileva automaticamente e mostra info per ogni disco.
+The bot automatically detects and shows info for each disc.
 
-## 🤝 Contribuire
+## 🤝 Contributing
 
-Per aggiungere funzionalità:
+To add features:
 
-1. Modifica i file appropriati
-2. Aggiorna le traduzioni in `i18n/locales/`
-3. Testa con entrambe le lingue
-4. Documenta nel README
+1. Modify appropriate files
+2. Update translations in `i18n/locales/`
+3. Test with both languages
+4. Document in README
 
-## 📝 Note
+## 📝 Notes
 
-- Il bot usa `docker exec` per comunicare con beet
-- Lo stato è salvato in `/tmp/beet_import_state.json`
-- Le directory skippate vanno in `/imports/skipped/`
-- Max 10 immagini inviate per volta
+- Bot uses `docker exec` to communicate with beet
+- State is saved in `/tmp/beet_import_state.json`
+- Skipped directories go to `/imports/skipped/`
+- Max 10 images sent at once
 
-## 🔐 Sicurezza
+## 🔐 Security
 
-- Il bot accetta comandi solo dal `CHAT_ID` configurato
-- Non espone porte esterne
-- Usa socket Docker in read-only (dove possibile)
+- Bot only accepts commands from configured `CHAT_ID`
+- No external ports exposed
+- Uses Docker socket in read-only mode (where possible)
 
-## 📜 Licenza
+## 📜 License
 
-MIT License - Usa liberamente!
+MIT License - Free to use!
 
 ## 🙏 Credits
 
 - [Beets](https://beets.io/) - Music library manager
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
-- MusicBrainz & Discogs per i metadata
+- MusicBrainz & Discogs for metadata
 
 ---
 

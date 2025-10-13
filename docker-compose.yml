@@ -1,0 +1,48 @@
+services:
+  beet-bot:
+    build: .
+    container_name: beet-telegram-bot
+    restart: unless-stopped
+    environment:
+      # Configura questi nel file .env
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      
+      # Variabili standard per permessi e timezone
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      
+      # IMPORTANTE: Nome del container dove gira beet
+      # Il bot userà 'docker exec' per eseguire i comandi
+      - BEET_CONTAINER=${BEET_CONTAINER}
+      
+      # OPZIONALE: Utente da usare con docker exec -u
+      # Esempio: abc
+      - BEET_USER=${BEET_USER:-}
+      
+      # Path che vede il BOT
+      - IMPORT_PATH=/downloads
+      - BEET_LIBRARY=/music
+    volumes:
+      # Cartella dove metti i file da importare
+      # DEVE essere la stessa del container beet
+      - /path/to/imports:/downloads
+      
+      # Libreria musicale (solo per leggere file/immagini)
+      # DEVE essere la stessa del container beet
+      - /path/to/music:/music:ro
+      
+      # Socket Docker per eseguire comandi nel container beet
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+      # Stato del bot (persistente)
+      - ./bot_state:/tmp
+    networks:
+      - beet-network
+
+networks:
+  beet-network:
+    # Usa 'external: true' se la network esiste già
+    # external: true
+    driver: bridge

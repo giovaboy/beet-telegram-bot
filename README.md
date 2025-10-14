@@ -126,22 +126,12 @@ docker-compose restart
 - Import with MusicBrainz ID
 - Import with Discogs ID
 - As-is import (without metadata)
-- Force first match
 
 ### 💾 Persistence
 - Saved import state
 - Resume after restart
 
 ## 🔧 Advanced Configuration
-
-### Different Paths Between Bot and Beet
-
-If the beet container sees a different path:
-
-```env
-# In .env
-BEET_IMPORT_PATH=/config/imports
-```
 
 ### Logging
 

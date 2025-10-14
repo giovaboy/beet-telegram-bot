@@ -102,7 +102,7 @@ def create_import_status_keyboard(result):
         
         keyboard.append([
             InlineKeyboardButton(t('buttons.import_as_is'), callback_data="as_is"),
-            InlineKeyboardButton(t('buttons.force_first'), callback_data="force_import")
+            #InlineKeyboardButton(t('buttons.force_first'), callback_data="force_import")
         ])
         
         keyboard.append([

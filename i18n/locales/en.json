@@ -7,7 +7,7 @@
     "import_cancelled": "🚫 Import cancelled",
     "no_import_to_cancel": "✅ No import to cancel",
     "cmd_not_found": "❌ Custom command '{command_name}' not found in configuration.",
-    "executing": "⏳ Executing: `{display_action}`...",
+    "executing_custom": "⏳ Executing: `{display_action}`...",
     "executed_header": "✅ **Command Executed:** `{display_action}`\n\n",
     "exec_stderr_error": "⚠️ **Error (Stderr):**\n\n```\n{stderr_preview}\n```\n\n",
     "empty_output": "*(Empty output)*",

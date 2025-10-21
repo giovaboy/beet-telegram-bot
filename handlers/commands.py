@@ -16,15 +16,22 @@ logger = logging.getLogger(__name__)
 
 # --- SECURITY FILTER FUNCTION ---
 def check_allowed_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Checks if the user who sent the command is the authorized user."""
-    # If TELEGRAM_CHAT_ID is not set, the bot is potentially insecure
+    """Verify if the user sending the command is the authorized user."""
     if not TELEGRAM_CHAT_ID:
-        logger.warning(f"TELEGRAM_CHAT_ID not set. Message from {update.effective_chat.id}")
+        logger.warning(f"TELEGRAM_CHAT_ID not set")
         return False
     
     try:
-        # Compare the sender's ID with the configured ID
-        return str(update.effective_chat.id) == str(TELEGRAM_CHAT_ID)
+        # Handle both Message and CallbackQuery
+        if hasattr(update, 'effective_chat') and update.effective_chat:
+            chat_id = update.effective_chat.id
+        elif hasattr(update, 'callback_query') and update.callback_query:
+            chat_id = update.callback_query.message.chat_id
+        else:
+            logger.error("Cannot determine chat_id from update")
+            return False
+        
+        return str(chat_id) == str(TELEGRAM_CHAT_ID)
     except Exception as e:
         logger.error(f"Error checking user: {e}")
         return False
@@ -42,11 +49,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
 
 async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Shows the list of directories to import"""
+    logger.info(f"list_imports called")
     if not check_allowed_user(update, context):
         await update.message.reply_text(t('status.access_denied'))
         return
     
+    logger.info("User check passed")
     dirs = manager.get_import_directories()
+    logger.info(f"Found {len(dirs)} directories")
     
     if not dirs:
         await update.message.reply_text(
@@ -107,7 +117,7 @@ async def cancel_import(update: Update, context: ContextTypes.DEFAULT_TYPE, mana
 async def format_and_send_import_status(message, result, manager, context=None):
     """Helper to format and send import status"""
     msg = format_import_status(result)
-    keyboard = create_import_status_keyboard(result)
+    keyboard = create_import_status_keyboard(result, context)
     
     sent_message = await message.reply_text(
         msg,

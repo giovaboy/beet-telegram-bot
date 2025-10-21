@@ -23,7 +23,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
         # Assuming manager.import_with_id handles the BEETS interaction and returns a result
         result = manager.import_with_id(
             manager.current_import['path'],
-            mb_id=text
+            mb_id=text,
+            auto_apply=False
         )
         await update.message.reply_text(result['message'])
         
@@ -36,7 +37,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
         await update.message.reply_text(t('import.with_discogs_id'))
         result = manager.import_with_id(
             manager.current_import['path'],
-            discogs_id=text
+            discogs_id=text,
+            auto_apply=False
         )
         await update.message.reply_text(result['message'])
         

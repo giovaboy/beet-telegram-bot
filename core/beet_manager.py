@@ -1,16 +1,17 @@
 """
-Main manager for beet operations (refactored)
+BeetImportManager (refactored)
+Uses parsers.parse_beet_output to produce a canonical import structure.
 """
 import os
 import json
 import subprocess
 import shutil
-import logging
 from pathlib import Path
-from config import IMPORT_PATH, STATE_FILE, BEET_CONTAINER, BEET_USER
-from core.parsers import parse_beet_output
+from config import IMPORT_PATH, STATE_FILE, BEET_CONTAINER, BEET_USER, setup_logging
+from core.parsers import parse_beet_output  # updated parser
+from core.parsers import clean_ansi_codes
 
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 
 class BeetImportManager:
@@ -19,7 +20,7 @@ class BeetImportManager:
         self.load_state()
 
     # ======================================================
-    # 🧠 STATE MANAGEMENT
+    # STATE MANAGEMENT
     # ======================================================
     def load_state(self):
         """Load current import state from JSON file"""
@@ -50,7 +51,7 @@ class BeetImportManager:
             logger.warning(f"Could not clear state: {e}")
 
     # ======================================================
-    # 📁 DIRECTORY OPERATIONS
+    # DIRECTORY OPERATIONS
     # ======================================================
     def get_import_directories(self):
         """Return a sorted list of directories under the import folder"""
@@ -81,7 +82,7 @@ class BeetImportManager:
         return path
 
     # ======================================================
-    # 🐞 SUBPROCESS HELPERS
+    # SUBPROCESS HELPERS
     # ======================================================
     def _build_command(self, beet_args, interactive=False):
         """Build the full command array for beet, supporting Docker"""
@@ -128,7 +129,7 @@ class BeetImportManager:
             logger.warning(result.stderr[:2000])
 
     # ======================================================
-    # 🔍 SEARCH & IMPORT OPERATIONS
+    # SEARCH & IMPORT OPERATIONS
     # ======================================================
     def search_candidates(self, path):
         """Search for candidate matches without importing"""
@@ -139,33 +140,44 @@ class BeetImportManager:
 
         return {
             "status": "search_result",
-            "output": result.stdout + result.stderr,
+            "output": (result.stdout or "") + (result.stderr or ""),
             "path": path,
         }
 
     def start_import(self, path):
-        """Start an import and capture its initial status"""
+        """
+        Start an import and parse the output to build the canonical structure.
+        This function returns the canonical dict and also sets manager.current_import.
+        """
         beet_path = self.translate_path_for_beet(path)
         result = self._run_command(["beet", "-vv", "import", beet_path], timeout=300)
 
         if not result:
-            return {
-                "status": "error",
-                "message": "Import failed (no output)",
-                "path": path,
+            parsed = {
+                'status': 'error',
+                'path': path,
+                'has_multiple_candidates': False,
+                'selected_index': None,
+                'candidates': [],
+                'single_match': None,
+                'raw_output': '',
+                'timestamp': None
             }
+            self.current_import = parsed
+            return parsed
+        logger.debug('pre parseoutput')
+        parsed = parse_beet_output(result.stdout, result.stderr, path)
+        # Persist parsed into manager state
+        self.current_import = parsed
+        self.save_state()
+        return parsed
 
-        cleaned_output = (result.stdout + result.stderr).lower()
-        if result.returncode == 0 and any(
-            s in cleaned_output
-            for s in ["successfully imported", "already in library", "imported and tagged"]
-        ):
-            return {"status": "success", "message": "success", "path": path}
-
-        return parse_beet_output(result.stdout, result.stderr, path)
-
-    def import_with_id(self, path, mb_id=None, discogs_id=None, auto_apply=True):
-        """Import a release by specifying a MusicBrainz or Discogs ID"""
+    def import_with_id(self, path, mb_id=None, discogs_id=None, auto_apply=False):
+        """
+        Import a release by specifying a MusicBrainz or Discogs ID.
+        If auto_apply is False we run beet and send the 'B' (abort) to get a preview,
+        which is then parsed and returned as 'needs_confirmation' with match info.
+        """
         if not (mb_id or discogs_id):
             return {"status": "error", "message": "No ID specified"}
 
@@ -175,21 +187,38 @@ class BeetImportManager:
         else:
             beet_args = ["beet", "import", "--search", f"discogs_id::{discogs_id}", beet_path]
 
-        # Automatically apply or cancel
+        # Use "A" to accept, "B" to cancel/preview
         stdin_input = "A\n" if auto_apply else "B\n"
 
-        result = self._run_command(beet_args, input_data=stdin_input, timeout=300, interactive=True)
-        if not result:
-            return {"status": "error", "message": "Import failed"}
+        result = self._run_command(
+            beet_args,
+            input_data=stdin_input,
+            timeout=300,
+            interactive=True
+        )
 
-        if result.returncode == 0:
-            return {"status": "success", "message": "Import completed!"}
+        if not result:
+            return {"status": "error", "message": "Import failed", "output": ""}
+
+        output = (result.stdout or "") + "\n" + (result.stderr or "")
+
+        # If we auto-applied and beet returned 0 assume success (best-effort)
+        if result.returncode == 0 and auto_apply:
+            return {"status": "success", "message": "Import completed!", "output": output}
+
+        # If we previewed (auto_apply=False) we parse the output and provide a
+        # preview structure consistent with parse_beet_output (single match case).
+        parsed_preview = parse_beet_output(result.stdout, result.stderr, path)
+        # If parsed_preview is single_match or has_candidates; return it as preview
+        if parsed_preview.get('status') in ['single_match', 'has_candidates', 'needs_input', 'low_similarity']:
+            return {"status": "needs_confirmation", "preview": parsed_preview, "output": output}
         else:
-            err = result.stderr.strip() or result.stdout[-200:]
-            return {"status": "error", "message": err or "Import failed"}
+            # otherwise bubble up an error message
+            err = (result.stderr or "").strip() or (result.stdout or "")[-500:]
+            return {"status": "error", "message": err or "Import failed", "output": output}
 
     # ======================================================
-    # 🗑️ FILE MANAGEMENT
+    # FILE MANAGEMENT
     # ======================================================
     def delete_directory(self, path):
         """Delete a directory safely"""

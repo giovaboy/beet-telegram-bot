@@ -29,8 +29,12 @@ STATE_FILE = '/tmp/beet_import_state.json'
 AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wav', '.wv', '.ape'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 
+# Diff style for displaying differences
+# Options: 'char', 'word', 'smart', 'simple'
+DIFF_STYLE = os.environ.get('DIFF_STYLE', 'word')
+
 # Logging Configuration
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
 
 def setup_logging():
     """Configures logging for the application"""
@@ -42,5 +46,6 @@ def setup_logging():
     # Reduce verbosity of telegram
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('telegram').setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     
     return logging.getLogger(__name__)

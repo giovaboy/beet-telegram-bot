@@ -13,6 +13,7 @@ from telegram.ext import (
 )
 from config import TELEGRAM_TOKEN, CUSTOM_COMMANDS, setup_logging
 from core.beet_manager import BeetImportManager
+from core.plugin_detector import get_plugin_detector
 from handlers.commands import start, list_imports, status, cancel_import, execute_custom_command
 from handlers.callbacks import button_callback
 from handlers.messages import handle_message
@@ -28,6 +29,16 @@ def main():
     """Starts the bot"""
     if not TELEGRAM_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN not configured!")
+
+    # 🎯 NEW: Initialize plugin detector on startup
+    logger.info("🔍 Detecting beet plugins...")
+    detector = get_plugin_detector()
+    plugins = detector.get_enabled_plugins()
+    logger.info(f"✅ Detected plugins: {', '.join(plugins) if plugins else 'none'}")
+
+    # Log metadata sources
+    sources = detector.get_metadata_sources()
+    logger.info(f"📚 Available metadata sources: {', '.join(sources)}")
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
@@ -68,17 +79,17 @@ def main():
     # ⚙️ Setup bot menu and commands list after init
     async def post_init(application):
         try:
-            # Definisce i comandi base
+            # Define core commands
             core_commands = [
-                BotCommand("start", "Avvia il bot"),
-                BotCommand("list", "Mostra gli import in corso"),
-                BotCommand("status", "Verifica lo stato di un import"),
-                BotCommand("cancel", "Annulla un import"),
+                BotCommand("start", "Start the bot"),
+                BotCommand("list", "Show ongoing imports"),
+                BotCommand("status", "Check import status"),
+                BotCommand("cancel", "Cancel an import"),
             ]
 
-            # Aggiunge eventuali comandi custom
+            # Add any custom commands
             custom_bot_commands = [
-                BotCommand(item["cmd"], item.get("desc", f"Esegui {item['action']}"))
+                BotCommand(item["cmd"], item.get("desc", f"Execute {item['action']}"))
                 for item in CUSTOM_COMMANDS
             ]
 
@@ -87,9 +98,9 @@ def main():
             await application.bot.set_my_commands(all_commands)
             await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
-            logger.info(f"✅ Impostati {len(all_commands)} comandi nel menu del bot.")
+            logger.info(f"✅ Set {len(all_commands)} commands in bot menu.")
         except Exception as e:
-            logger.warning(f"⚠️ Errore durante la configurazione del menu button: {e}")
+            logger.warning(f"⚠️ Error during menu button configuration: {e}")
 
     app.post_init = post_init
 

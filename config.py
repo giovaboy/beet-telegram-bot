@@ -14,6 +14,8 @@ BEET_CONTAINER = os.environ.get('BEET_CONTAINER')
 BEET_USER = os.environ.get('BEET_USER')
 BEET_LIBRARY = os.environ.get('BEET_LIBRARY', '/music')
 IMPORT_PATH = os.environ.get('IMPORT_PATH', '/downloads')
+BEET_DEBUG_MODE = os.environ.get('BEET_DEBUG_MODE', 'false').lower() == 'true'
+BEET_PRETEND = os.environ.get('BEET_PRETEND','false').lower() == 'true'
 
 # Custom beet container commands
 CUSTOM_COMMANDS_JSON = os.environ.get('CUSTOM_COMMANDS', '[]')
@@ -31,10 +33,10 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 
 # Diff style for displaying differences
 # Options: 'char', 'word', 'smart', 'simple'
-DIFF_STYLE = os.environ.get('DIFF_STYLE', 'word')
+DIFF_STYLE = os.environ.get('DIFF_STYLE', 'smart')
 
 # Logging Configuration
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 
 def setup_logging():
     """Configures logging for the application"""
@@ -42,10 +44,10 @@ def setup_logging():
         level=getattr(logging, LOG_LEVEL),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     # Reduce verbosity of telegram
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('telegram').setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    
+
     return logging.getLogger(__name__)

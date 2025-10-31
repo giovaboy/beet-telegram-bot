@@ -4,6 +4,7 @@ Handler for the bot's commands
 import subprocess
 import os
 import tempfile
+import asyncio
 from telegram import Update
 from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
@@ -47,7 +48,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
         parse_mode='MarkdownV2'
     )
 
+
 async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
+    """Shows the list of directories to import"""
+    logger.info("list_imports called")
+
+    if not check_allowed_user(update, context):
+        await update.message.reply_text(t('status.access_denied'))
+        return
+
+    logger.info("User check passed")
+
+    dirs = manager.get_import_directories()
+    logger.info(f"Found {len(dirs)} directories")
+
+    chat_id = update.effective_chat.id
+    text = t('commands.list_header', count=len(dirs))
+
+    # 🧹 Pulisci tastiera precedente se presente
+    old_msg_id = context.user_data.get('list_message_id')
+    if old_msg_id:
+        try:
+            # Rimuove tastiera e testo precedente, per evitare duplicati
+            await context.bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=old_msg_id,
+                reply_markup=None
+            )
+            logger.debug(f"Removed old list keyboard from message {old_msg_id}")
+        except Exception as e:
+            logger.debug(f"Could not remove old keyboard: {e}")
+            try:
+                # Come fallback, elimina il messaggio
+                await safe_delete_message(context.bot, chat_id, old_msg_id)
+                logger.debug(f"Deleted old list message {old_msg_id}")
+            except Exception as e2:
+                logger.debug(f"Could not delete old message: {e2}")
+        context.user_data.pop('list_message_id', None)
+
+    # 🪣 Se non ci sono directory, mostra messaggio vuoto e basta
+    if not dirs:
+        path_escaped = escape_markdown(IMPORT_PATH, version=2)
+        msg = await update.message.reply_text(
+            t('commands.list_empty', path=path_escaped),
+            parse_mode='MarkdownV2'
+        )
+        return
+
+    # 🎛️ Crea nuova tastiera
+    keyboard = create_directory_list_keyboard(dirs)
+
+    # 📩 Invia nuovo messaggio
+    sent = await update.message.reply_text(
+        text,
+        parse_mode='MarkdownV2',
+        reply_markup=keyboard
+    )
+
+    # 💾 Salva ID del messaggio corrente
+    context.user_data['list_message_id'] = sent.message_id
+    logger.debug(f"New list message created: {sent.message_id}")
+
+
+async def list_imports2(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Shows the list of directories to import"""
     logger.info(f"list_imports called")
     if not check_allowed_user(update, context):
@@ -59,8 +122,6 @@ async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manag
     logger.info(f"Found {len(dirs)} directories")
 
     if not dirs:
-        # --- ESCAPE AGGIUNTO ---
-        # Il percorso IMPORT_PATH potrebbe contenere caratteri speciali
         path_escaped = escape_markdown(IMPORT_PATH, version=2)
         await update.message.reply_text(
             t('commands.list_empty', path=path_escaped), # Message when the import list is empty
@@ -85,6 +146,7 @@ async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manag
             return
         except Exception as e:
             logger.debug(f"Could not update existing message: {e}")
+            pass
 
     # Send new message
     msg = await update.message.reply_text(
@@ -93,6 +155,7 @@ async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manag
         reply_markup=keyboard
     )
     context.user_data['list_message_id'] = msg.message_id
+
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Shows current import status"""
@@ -106,16 +169,17 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     else:
         await update.message.reply_text(t('commands.no_import')) # Message when no import is active
 
+
 async def cancel_import(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Cancels the current import"""
     if not check_allowed_user(update, context):
         await update.message.reply_text(t('status.access_denied'))
         return
-    
+
     if manager.current_import:
         # Clear import state
         manager.clear_state()
-        
+
         # Try to remove keyboard from last status message if it exists
         if 'last_status_message_id' in context.user_data:
             try:
@@ -126,15 +190,15 @@ async def cancel_import(update: Update, context: ContextTypes.DEFAULT_TYPE, mana
                 )
             except Exception as e:
                 logger.debug(f"Could not remove keyboard: {e}")
-        
+
         await update.message.reply_text(t('commands.import_cancelled'))
     else:
         await update.message.reply_text(t('commands.no_import_to_cancel'))
-        
-        
+
+
 async def format_and_send_import_status(message, result, manager, context=None):
     """Helper to format and send import status"""
-    
+
     # --- NOTA ---
     # Assumiamo che format_import_status(result) restituisca una stringa
     # già formattata e con escape corretto per MarkdownV2.
@@ -154,9 +218,10 @@ async def format_and_send_import_status(message, result, manager, context=None):
 
     return sent_message.message_id
 
+
 async def cleanup_old_status_message(context, chat_id, label_key='completed_label'):
     """Removes keyboard and adds history label to the previous message"""
-    return
+    #return
     if 'last_status_message_id' not in context.user_data:
         return
 
@@ -181,6 +246,7 @@ async def cleanup_old_status_message(context, chat_id, label_key='completed_labe
 
     # Clear the reference
     del context.user_data['last_status_message_id']
+
 
 async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Executes a predefined custom command and sends the output to the user."""
@@ -224,7 +290,7 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
         display_action = beet_command_str
 
     # --- 3. EXECUTION AND ERROR HANDLING ---
-    
+
     # --- ESCAPE AGGIUNTO ---
     # Il comando (display_action) viene mostrato all'utente e necessita di escape
     display_action_escaped = escape_markdown(display_action, version=2)
@@ -252,11 +318,11 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
             # stderr è output raw e va escapato
             stderr_preview = result.stderr[:500]
             stderr_escaped = escape_markdown(stderr_preview, version=2)
-            
+
             if len(result.stderr) > 500:
                 # Anche il testo 'truncated' deve essere escapato se contiene markdown
                 stderr_escaped += escape_markdown(t('commands.truncated'), version=2) # Message for truncation
-                
+
             output += t('commands.error_stderr', stderr_preview=stderr_escaped) # Message for stderr
 
         # Add stdout (The actual command result)

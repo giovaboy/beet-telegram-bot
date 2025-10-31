@@ -3,6 +3,7 @@ Creation of inline keyboards for Telegram (refactored for new unified import mod
 """
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from i18n.translations import t
+from core.plugin_detector import has_discogs_plugin
 
 
 def create_directory_list_keyboard(dirs):
@@ -39,14 +40,19 @@ def create_directory_details_keyboard(idx, structure, search_query):
     else:
         keyboard.append([InlineKeyboardButton(t('buttons.view_files'), callback_data=f"files_{idx}")])
 
-    # Search buttons
-    mb_url = f"https://musicbrainz.org/search?query={search_query}&type=release&method=indexed"
-    discogs_url = f"https://www.discogs.com/search/?q={search_query}&type=release"
+    # Search buttons - adapt based on enabled plugins
+    search_row = []
 
-    keyboard.append([
-        InlineKeyboardButton(t('buttons.search_mb'), url=mb_url),
-        InlineKeyboardButton(t('buttons.search_discogs'), url=discogs_url)
-    ])
+    # MusicBrainz is always available (default source)
+    mb_url = f"https://musicbrainz.org/search?query={search_query}&type=release&method=indexed"
+    search_row.append(InlineKeyboardButton(t('buttons.search_mb'), url=mb_url))
+
+    # Discogs only if plugin is enabled
+    if has_discogs_plugin():
+        discogs_url = f"https://www.discogs.com/search/?q={search_query}&type=release"
+        search_row.append(InlineKeyboardButton(t('buttons.search_discogs'), url=discogs_url))
+
+    keyboard.append(search_row)
 
     # Delete / Back / Import
     keyboard.append([InlineKeyboardButton(t('buttons.delete'), callback_data=f"confirm_delete_{idx}")])
@@ -68,63 +74,98 @@ def create_delete_confirm_keyboard(idx, dir_name):
 
 def create_import_status_keyboard(result, context=None):
     """
-    Creates keyboard for import results — unified for both single match and multiple candidates.
+    Creates keyboard for import results.
+
+    Flow B: Single Match → "Accept Match" button (direct accept, no preview)
+    Flow C: Multiple Candidates → Numbered buttons (show preview first)
+    Flow A/D: No match/Manual → Manual input buttons
     """
     keyboard = []
 
-    # --- Case: Single Match ---------------------------------------------------
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # FLOW B: Single Match (Direct Accept)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if result.get('single_match'):
-        sm = result['single_match']
-        similarity = sm.get('similarity', '?')
+        single_match = result['single_match']
+        similarity = single_match.get('similarity', '?')
+
+        # ✅ Direct accept button - no preview
         keyboard.append([
             InlineKeyboardButton(
                 t('buttons.accept_match', similarity=similarity),
-                callback_data="single_match_accept"
+                callback_data="single_match_accept"  # Handler: single_match_accept()
             )
         ])
 
-    # --- Case: Multiple Candidates --------------------------------------------
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # FLOW C: Multiple Candidates (Preview First)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif result.get('candidates'):
-        candidates = result['candidates'][:5]
-        num_emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+        candidates = result['candidates'][:10]
+        num_emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
         for i, cand in enumerate(candidates):
-            raw_similarity = cand.get('similarity')
-            raw_artist = cand.get('artist')
-            raw_album = cand.get('album')
-            raw_year = cand.get('year')
-            
-            # 2. Assegnazione del fallback se il valore è None
-            # Usiamo '?' come fallback se il parser ha restituito null per il campo
-            similarity = raw_similarity if raw_similarity is not None else '?'
-            artist = raw_artist if raw_artist is not None else '?'
-            album = raw_album if raw_album is not None else '?'
-            year = raw_year if raw_year is not None else '?'
-            
-            label = f"{artist} — {album} ({year})"
+            # Handle None values
+            similarity = cand.get('similarity') or '?'
+            artist = cand.get('artist') or '?'
+            album = cand.get('album') or '?'
+            year = cand.get('year') or '?'
 
-            emoji = num_emoji[i] if i < len(num_emoji) else str(i + 1)
+            # Build label with truncation
+            label = f"{artist} — {album} ({year})"
+            if len(label) > 45:
+                label = label[:42] + "..."
+
+            emoji = num_emoji[i] if i < len(num_emoji) else f"{i+1}."
+
+            # Extract ID for validation
+            id_short = None
+            if cand.get('mb_id'):
+                id_short = cand['mb_id'][:8]
+            elif cand.get('discogs_id'):
+                id_short = cand['discogs_id'][:8]
+
+            # Build callback with index and ID validation
+            if id_short:
+                callback_data = f"match_{i}_{id_short}"
+            else:
+                callback_data = f"match_{i}_none"
+
+            # ✅ Candidate button - shows preview first
             keyboard.append([
-                InlineKeyboardButton(f"{emoji} {label} [{similarity}%]", callback_data=f"match_{i}")
+                InlineKeyboardButton(
+                    f"{emoji} ({similarity}%) {label}",
+                    callback_data=callback_data  # Handler: handle_match_select()
+                )
             ])
 
-    # --- Case: Manual Input or Misc ------------------------------------------
-    if not keyboard or result.get("status") in (
-        "no_match", "needs_input", "unknown", "has_candidates", "single_match"
-    ):
-        keyboard.append([
-            InlineKeyboardButton(t('buttons.mb_id'), callback_data="mb_id"),
-            InlineKeyboardButton(t('buttons.discogs_id'), callback_data="discogs_id")
-        ])
-        keyboard.append([InlineKeyboardButton(t('buttons.import_as_is'), callback_data="as_is")])
-        keyboard.append([
-            InlineKeyboardButton(t('buttons.skip'), callback_data="skip"),
-            InlineKeyboardButton(t('buttons.retry'), callback_data="retry"),
-            InlineKeyboardButton(t('buttons.info'), callback_data="info")
-        ])
-        keyboard.append([InlineKeyboardButton(t('buttons.cancel_import'), callback_data="cancel_import")])
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # FLOW D: Manual Input Options (Always Available)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    manual_row = []
+
+    # MusicBrainz always available
+    manual_row.append(InlineKeyboardButton(t('buttons.mb_id'), callback_data="mb_id"))
+
+    # Discogs only if plugin enabled
+    if has_discogs_plugin():
+        manual_row.append(InlineKeyboardButton(t('buttons.discogs_id'), callback_data="discogs_id"))
+
+    keyboard.append(manual_row)
+
+    keyboard.append([
+        InlineKeyboardButton(t('buttons.import_as_is'), callback_data="as_is")
+    ])
+    keyboard.append([
+        InlineKeyboardButton(t('buttons.skip'), callback_data="skip"),
+        InlineKeyboardButton(t('buttons.retry'), callback_data="retry"),
+    ])
+    keyboard.append([
+        InlineKeyboardButton(t('buttons.cancel_import'), callback_data="cancel_import")
+    ])
 
     return InlineKeyboardMarkup(keyboard)
+
 
 
 def create_back_keyboard(idx):

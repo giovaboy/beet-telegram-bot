@@ -7,16 +7,17 @@
     "import_cancelled": "🚫 Import annullato",
     "no_import_to_cancel": "✅ Nessun import da annullare",
     "cmd_not_found": "❌ Comando custom '\\{command_name}\\' non trovato nella configurazione\\.",
-    "executing": "⏳ Esecuzione: \\`{display_action}\\`\\.\\.\\.",
-    "executing_custom": "⏳ Esecuzione: \\`{display_action}\\`\\.\\.\\.",
-    "executed_header": "✅ **Comando Eseguito:** \\`{display_action}\\`\n\n",
+    "executing": "⏳ Esecuzione: `{display_action}`\\.\\.\\.",
+    "executing_custom": "⏳ Esecuzione: `{display_action}`\\.\\.\\.",
+    "executed_header": "✅ **Comando Eseguito:** `{display_action}`\n\n",
     "exec_stderr_error": "⚠️ **Errore \\(Stderr\\):**\n\n```\n{stderr_preview}\n```\n\n",
     "empty_output": "\\(Output vuoto\\)",
     "output_too_long": "⚠️ **Output troppo lungo \\(più di 4000 caratteri\\)\\.** Invio come file\\.\\.\\.",
-    "output_file_caption": "Output completo di \\`{display_action}\\`",
-    "exec_timeout": "❌ **Errore:** Il comando \\`{display_action}\\` è andato in timeout \\({seconds}s\\)\\.",
+    "output_file_caption": "Output completo di `{display_action}`",
+    "exec_timeout": "❌ **Errore:** Il comando `{display_action}` è andato in timeout \\({seconds}s\\)\\.",
     "exec_unexpected_error": "❌ **Errore Imprevisto nell\\'esecuzione:** {error}",
-    "error_stderr":"**stderr:** {stderr_preview}"
+    "error_stderr":"**stderr:** {stderr_preview}",
+    "truncated": "_ \\.\\.\\. output troncato _"
   },
   "directory": {
     "analyzing": "🔍 Analizzo \\`{name}\\`\\.\\.\\.",
@@ -35,36 +36,37 @@
     "data_unavailable": "❌ Dati non disponibili, riprova"
   },
   "delete": {
-    "confirm": "⚠️ *Sei sicuro di voler ELIMINARE PERMANENTEMENTE* la directory \\`{name}\\` e tutto il suo contenuto\\?\n\nQuesta operazione non è reversibile\\.",
+    "confirm": "⚠️ *Sei sicuro di voler ELIMINARE PERMANENTEMENTE* la directory\n`{name}`\ne tutto il suo contenuto\\?\n\nQuesta operazione non è reversibile\\.",
     "success": "🗑️ Directory eliminata con successo: {name}",
     "error": "❌ Errore durante l\\'eliminazione: {error}",
     "error_root": "❌ Non puoi eliminare la directory radice di import\\!",
     "error_not_found": "❌ Directory non trovata o fuori portata"
   },
   "import": {
-    "starting": "⏳ Avvio import di\n\\`{name}\\`\\.\\.\\.",
-    "with_id": "⏳ Importo con ID:\n\\`{id}\\`\\.\\.\\.",
+    "starting": "⏳ Avvio import di\n`{name}`\\.\\.\\.",
+    "with_id": "⏳ Importo con ID:\n`{id}`\\.\\.\\.",
+    "with_source_id": "⏳ Importo con {source} ID:\n`{id}`\\.\\.\\.",
     "with_mb_id": "⏳ Importo con MusicBrainz ID\\.\\.\\.",
     "with_discogs_id": "⏳ Importo con Discogs ID\\.\\.\\.",
-    "as_is": "⏳ Importo senza metadata \\(\\-A\\)\\.\\.\\.",
+    "as_is": "⏳ Importo senza metadata \\(U\\)\\.\\.\\.",
     "force": "⏳ Importo forzando il primo match \\(\\-a\\)\\.\\.\\.",
     "retrying": "🔄 Riprovo l\\'import\\.\\.\\.",
     "searching": "🔍 Cerco informazioni sull\\'album\\.\\.\\.",
     "search_result": "📋 Risultato ricerca:\n\n```\n{output}\n```",
     "start_error": "❌ Errore durante l\\'avvio import:\n\\`{error}\\`",
-    "generic_error_preview": "❌ Errore: {error}",
+    "generic_error_preview": "❌ Errore: `{error}`",
     "stderr_error_preview": "❌ Errore Beet \\(Stderr\\):\n\\`{error}\\`",
-    "checking_match": "🔍 Verifico match per ID: \\`{id}\\`\\.\\.\\.",
-    "confirming": "✅ Confermo import con ID: \\`{id}\\`\\.\\.\\.",
+    "checking_match": "🔍 Verifico match per ID: `{id}`\\.\\.\\.",
+    "confirming": "✅ Confermo import con ID: `{id}`\\.\\.\\.",
     "preview_cancelled": "❌ Anteprima import annullata\\.",
-    "with_discogs_id_short": "⏳ Importo con Discogs ID: \\`{id}\\`\\.\\.\\."
+    "with_discogs_id_short": "⏳ Importo con Discogs ID: `{id}`\\.\\.\\."
   },
   "status": {
     "header": "*Stato Import*",
     "success": "✅ Import completato con successo\\!",
     "error": "❌ Errore",
     "no_match": "🔍 Nessuna corrispondenza trovata automaticamente",
-    "single_match": "Match trovato \\({similarity}% similarity\\)",
+    "single_match": "Match trovato \\({similarity}%\\)",
     "has_candidates": "📋 *Trovati {count} candidati*",
     "select_candidate": "🎯 *Seleziona il match corretto:*",
     "more_candidates": "\\.\\.\\. e altri {count} candidati",
@@ -84,7 +86,8 @@
     "list_refreshed": "🔄 Lista aggiornata",
     "no_changes": "✅ Nessun cambiamento trovato",
     "ask_confirm": "✅ *Confermi di voler procedere con questo import\\?*",
-    "multiple_candidates": "Candidati:"
+    "multiple_candidates": "Candidati:",
+    "preview": "Anteprima Import"
   },
   "buttons": {
     "refresh": "🔄 Aggiorna lista",
@@ -94,10 +97,11 @@
     "search_discogs": "💿 Cerca Discogs",
     "start_import": "▶️ Avvia Import",
     "delete": "❌ Elimina Directory",
-    "confirm_delete": "✅ CONFERMA ELIMINAZIONE di {name}",
+    "confirm_delete": "✅ CONFERMA ELIMINAZIONE della directory `{name}`",
     "cancel": "❌ Annulla",
     "back": "◀️ Indietro",
     "back_to_list": "◀️ Torna alla lista",
+    "back_to_candidates": "◀️ Torna ai candidati",
     "accept_match": "✅ Accetta questo match ({similarity}%)",
     "mb_id": "🔍 MusicBrainz ID",
     "discogs_id": "💿 Discogs ID",
@@ -112,32 +116,39 @@
     "cancel_preview": "❌ Annulla"
   },
   "prompts": {
-    "mb_id": "🔍 *Inserisci l\\'ID di MusicBrainz*\n\nFormato: \\`xxxxxxxx\\-xxxx\\-xxxx\\-xxxx\\-xxxxxxxxxxxx\\`\n\nCerca su: https://musicbrainz\\.org",
-    "discogs_id": "💿 *Inserisci l\\'ID di Discogs*\n\nFormato: numero \\(es\\. \\`123456\\`\\)\n\nCerca su: https://discogs\\.com",
+    "mb_id": "🔍 *Inserisci l\\'ID di MusicBrainz*\n\nFormato: `xxxxxxxx\\-xxxx\\-xxxx\\-xxxx\\-xxxxxxxxxxxx`\n\nCerca su: https://musicbrainz\\.org",
+    "discogs_id": "💿 *Inserisci l\\'ID di Discogs*\n\nFormato: `\\[r123456\\]`\n\nCerca su: https://discogs\\.com",
     "confirm_as_is": "⚠️ Confermi di voler importare senza metadata\\?\nScrivi \\'SI\\' per confermare",
     "cancelled": "❌ Import annullato"
   },
   "fields": {
-    "directory": "📁 Directory: \\`{name}\\`",
+    "directory": "📁 Directory: `{name}`",
     "artist": "*Artista:* {artist}",
     "album": "*Album:* {album}",
     "title": "*Titolo:* {title}",
     "year": "*Anno:* {year}",
-    "status": "*Status:* \\`{status}\\`",
+    "status": "*Status:* `{status}`",
+    "more_diff": "_\\.\\.\\.and {remaining} more differences_",
+    "similarity": "*Similarità:* {similarity}%",
     "mb_link": "🔗 [Vedi su MusicBrainz]({url})",
-    "discogs_link": "🔗 \\[Vedi su Discogs\\]\\({url}\\)"
+    "discogs_link": "🔗 [Vedi su Discogs]({url})",
+    "link": "🔗 [Vedi su {source}]({url})"
   },
   "errors": {
     "mb_id_not_found": "MB ID non trovato nella sessione",
     "discogs_id_not_found": "Discogs ID non trovato nella sessione",
-    "invalid_mb_id": "ID di MusicBrainz non valido\\. Deve essere nel formato \\`xxxxxxxx\\-xxxx\\-xxxx\\-xxxx\\-xxxxxxxxxxxx\\`",
+    "invalid_mb_id": "ID di MusicBrainz non valido\\. Deve essere nel formato `xxxxxxxx\\-xxxx\\-xxxx\\-xxxx\\-xxxxxxxxxxxx`",
     "invalid_discogs_id": "ID di Discogs non valido\\. Deve essere un numero intero positivo",
     "confirm_as_is_failed": "Conferma non valida\\. Import as\\-is annullato\\." ,
     "no_import_in_progress": "Nessun import in corso da gestire\\.",
     "single_match_not_found": "Nessun match singolo trovato da accettare\\.",
     "match_not_found": "Nessun match trovato per l\\'indice fornito\\.",
     "no_discogs_id": "Nessun ID Discogs trovato per questo candidato\\.",
-    "unknown_source": "Sorgente sconosciuta per questo candidato\\."
+    "unknown_source": "Sorgente sconosciuta per questo candidato\\.",
+    "import_expired": "Importazione scaduta\\.",
+    "invalid_callback": "Callback non valido\\.",
+    "invalid_source": "Sorgente non valida\\.",
+    "no_import_active": "Nessun import attivo\\."
   },
   "info": {
     "release_details": "Dettagli release",

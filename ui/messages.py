@@ -3,9 +3,10 @@ Telegram message formatting (refactored for unified import model)
 """
 from pathlib import Path
 from core.parsers import format_difference_with_diff
-from config import setup_logging
+from config import setup_logging, DIFF_STYLE
 from i18n.translations import t
 from telegram.helpers import escape_markdown
+from core.plugin_detector import has_discogs_plugin
 
 logger = setup_logging()
 
@@ -44,7 +45,7 @@ def format_directory_details(dir_name, structure):
 
 def format_file_list(structure):
     """Formats the file list message"""
-    max_audio_files = 50 if structure['type'] == 'single_album' else 50
+    max_audio_files = 80 if structure['type'] == 'single_album' else 80
     msg = t('directory.file_list') + "\n\n"
 
     if structure['type'] == 'multi_disc':
@@ -53,7 +54,7 @@ def format_file_list(structure):
             msg += f"*{disc_name_escaped}*\n"
             for f in disc['audio_files'][:max_audio_files]:
                 size_mb = f['size'] / 1024 / 1024
-                file_info = f"• {f['name'][:60]} ({size_mb:.1f} MB)"
+                file_info = f"• {f['name'][:80]} ({size_mb:.1f} MB)"
                 msg += f"  {escape_markdown(file_info, version=2)}\n"
             if len(disc['audio_files']) > max_audio_files:
                 msg += "  " + t('directory.more_files', count=len(disc['audio_files']) - max_audio_files) + "\n"
@@ -61,7 +62,7 @@ def format_file_list(structure):
     else:
         for f in structure['audio_files'][:max_audio_files]:
             size_mb = f['size'] / 1024 / 1024
-            file_info = f"• {f['name'][:60]} ({size_mb:.1f} MB)"
+            file_info = f"• {f['name'][:80]} ({size_mb:.1f} MB)"
             msg += f"{escape_markdown(file_info, version=2)}\n"
         if len(structure['audio_files']) > max_audio_files:
             msg += "\n" + t('directory.more_files', count=len(structure['audio_files']) - max_audio_files) + "\n"
@@ -120,20 +121,23 @@ def format_import_status(result):
 
         if single.get('differences'):
             msg += "\n⚠️ *" + t('status.differences') + "*\n"
-            
+
             # 🎯 ENHANCED: Use character-level diff highlighting
-            for diff in single['differences'][:50]:
+            for diff in single['differences'][:100]:
                 # Style options: 'char' | 'word' | 'smart' | 'simple'
-                formatted = format_difference_with_diff(diff, style='smart')
+                formatted = format_difference_with_diff(diff, style=DIFF_STYLE)
                 msg += formatted + "\n"
-            
-            if len(single['differences']) > 50:
-                remaining = len(single['differences']) - 50
-                msg += f"  _\\.\\.\\.and {remaining} more differences_\n"
+
+            if len(single['differences']) > 100:
+                remaining = len(single['differences']) - 100
+                msg += f"\n{t('fields.more_diff',remaining=remaining)}\n"
 
         if single.get('mb_url'):
             # Il link va bene, Telegram gestisce l'escape della URL
-            msg += t('fields.mb_link', url=single['mb_url']) + "\n"
+            msg += "\n" + t('fields.mb_link', url=single['mb_url']) + "\n"
+
+        if single.get('discogs_url') and has_discogs_plugin():
+            msg += "\n" + t('fields.discogs_link', url=single['discogs_url']) + "\n"
 
         msg += "\n" + t('status.ask_confirm') + "\n"
 
@@ -141,8 +145,8 @@ def format_import_status(result):
     elif result.get('candidates'):
         cands = result['candidates']
         msg += f"📋 *{t('status.multiple_candidates', count=len(cands))}*\n\n"
-        for i, c in enumerate(cands[:5]):
-            num = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'][i] if i < 5 else f"{i + 1}\."
+        for i, c in enumerate(cands[:10]):
+            num = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣','8️⃣','9️⃣','🔟'][i] if i < 10 else f"{i + 1}\."
 
             # 1. Recupero e gestione di None (se il valore è 'null' nel JSON)
             raw_similarity = c.get('similarity')
@@ -165,9 +169,9 @@ def format_import_status(result):
 
             # Nota: '—' (em dash) non è riservato, ma il '-' (hyphen) sì.
             # Qui usiamo l'em dash, quindi non lo escapiamo.
-            msg += f"{num} {artist} — _{album}_ \({year}\) [{sim}%]\n"
-        if len(cands) > 5:
-            msg += f"\n_" + t('status.more_candidates', count=len(cands) - 5) + "_\n"
+            msg += f"{num} \({sim}%\) {artist} — _{album}_ \({year}\)\n\n"
+        if len(cands) > 10:
+            msg += f"\n_" + t('status.more_candidates', count=len(cands) - 10) + "_\n"
 
     # --- Fallback / No match ---
     else:

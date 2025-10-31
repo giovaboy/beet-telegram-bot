@@ -6,7 +6,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from i18n.translations import t
 from config import BEET_CONTAINER, BEET_USER
-from handlers.commands import cleanup_old_status_message # Added import for the cleanup function
+from handlers.commands import cleanup_old_status_message
+from handlers.callbacks import import_with_mb_id, import_with_discogs_id
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Handler for messages (entered IDs)"""
@@ -16,42 +17,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
     text = update.message.text.strip()
     waiting_for = context.user_data['waiting_for']
 
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Case 1: MusicBrainz ID
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if waiting_for == 'mb_id':
-        await update.message.reply_text(t('import.with_mb_id'))
-
-        # NOTE: Missing cleanup_old_status_message call here, should be added for consistency
-        # Assuming manager.import_with_id handles the BEETS interaction and returns a result
-        result = manager.import_with_id(
-            manager.current_import['path'],
+        await update.message.reply_text(t('import.with_mb_id'), parse_mode='MarkdownV2')
+        await import_with_mb_id(
+            update=update,
             mb_id=text,
+            context=context,
+            manager=manager,
             auto_apply=False
         )
-        await update.message.reply_text(result['message'])
 
-        if result['status'] == 'success':
-            # Add cleanup for successful import here
-            await cleanup_old_status_message(context, update.message.chat_id, 'completed_label')
-            manager.clear_state()
-
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Case 2: Discogs ID
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif waiting_for == 'discogs_id':
-        await update.message.reply_text(t('import.with_discogs_id'))
-        result = manager.import_with_id(
-            manager.current_import['path'],
+        await update.message.reply_text(t('import.with_discogs_id'), parse_mode='MarkdownV2')
+        await import_with_discogs_id(
+            update=update,
             discogs_id=text,
+            context=context,
+            manager=manager,
             auto_apply=False
         )
-        await update.message.reply_text(result['message'])
 
-        if result['status'] == 'success':
-            # Add cleanup for successful import here
-            await cleanup_old_status_message(context, update.message.chat_id, 'completed_label')
-            manager.clear_state()
-
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Case 3: Confirm "as-is" import
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif waiting_for == 'confirm_as_is':
         # Check if the user confirms the "as-is" import
+        if text.upper() in ['SI', 'YES', 'Y', 'OK', 'SÌ']:
+            await update.message.reply_text(t('import.as_is'), parse_mode='MarkdownV2')
 
-        if text.upper() in ['SI', 'YES', 'Y', 'OK']:
-            await update.message.reply_text(t('import.as_is'))
             try:
                 beet_path = manager.translate_path_for_beet(manager.current_import['path'])
                 beet_cmd = ['beet', 'import', beet_path]
@@ -64,18 +63,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
                 else:
                     cmd = beet_cmd
 
-                result = subprocess.run(cmd, input='U\n', capture_output=True, text=True, timeout=300)
+                result = subprocess.run(
+                    cmd,
+                    input='U\n',
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
 
                 if result.returncode == 0:
                     # Cleanup old message before confirming
                     await cleanup_old_status_message(context, update.message.chat_id, 'completed_label')
-                    await update.message.reply_text(t('status.import_completed'))
+                    await update.message.reply_text(t('status.import_completed'), parse_mode='MarkdownV2')
                     manager.clear_state()
                 else:
-                    await update.message.reply_text(f"❌ {result.stderr[:200]}")
+                    error_output = result.stderr[:200] if result.stderr else "Unknown error"
+                    await update.message.reply_text(f"❌ {error_output}")
+
+            except subprocess.TimeoutExpired:
+                await update.message.reply_text("⏱️ Import timed out (>5 minutes)")
             except Exception as e:
                 await update.message.reply_text(f"❌ {str(e)}")
         else:
             await update.message.reply_text(t('prompts.cancelled'))
 
+    # Clear the waiting state
     del context.user_data['waiting_for']

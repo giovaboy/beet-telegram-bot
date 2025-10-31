@@ -7,7 +7,7 @@ import json
 import subprocess
 import shutil
 from pathlib import Path
-from config import IMPORT_PATH, STATE_FILE, BEET_CONTAINER, BEET_USER, setup_logging
+from config import IMPORT_PATH, STATE_FILE, BEET_CONTAINER, BEET_USER, BEET_PRETEND, setup_logging
 from core.parsers import parse_beet_output  # updated parser
 from core.parsers import clean_ansi_codes
 
@@ -110,12 +110,33 @@ class BeetImportManager:
             )
             self._log_result(cmd, result)
             return result
-        except subprocess.TimeoutExpired:
-            logger.error(f"Timeout executing beet command: {' '.join(cmd)}")
-            return None
+        except subprocess.TimeoutExpired as e:
+            logger.error(f"Timeout executing: {' '.join(cmd)}")
+
+            # If we are in a Docker container, kill the process
+            # if BEET_CONTAINER:
+            #     try:
+            #         # Kill all beet processes still running inside the container
+            #         kill_cmd = ["docker", "exec", BEET_CONTAINER, "pkill", "-f", "beet import"]
+            #         subprocess.run(kill_cmd, capture_output=True, text=True, timeout=10)
+            #         logger.warning(f"Killed hanging beet process inside container {BEET_CONTAINER}")
+            #     except Exception as kill_err:
+            #         logger.error(f"Failed to kill hanging beet process: {kill_err}")
+
+            return type('Result', (), {
+                'returncode': -1,
+                'stdout': '',
+                'stderr': f'Command timed out after {timeout}s',
+                'args': cmd
+            })()
         except Exception as e:
-            logger.error(f"Error executing beet command: {e}")
-            return None
+            logger.error(f"Error executing beet: {e}", exc_info=True)
+            return type('Result', (), {
+                'returncode': -1,
+                'stdout': '',
+                'stderr': str(e),
+                'args': cmd
+            })()
 
     def _log_result(self, cmd, result):
         """Log standardized subprocess output"""
@@ -134,7 +155,7 @@ class BeetImportManager:
     def search_candidates(self, path):
         """Search for candidate matches without importing"""
         beet_path = self.translate_path_for_beet(path)
-        result = self._run_command(["beet", "ls", "-a", f"path:{beet_path}"], timeout=10)
+        result = self._run_command(["beet", "ls", "-a", f"path:{beet_path}"], timeout=300)
         if not result:
             return {"status": "error", "message": "Search failed", "path": path}
 
@@ -150,7 +171,11 @@ class BeetImportManager:
         This function returns the canonical dict and also sets manager.current_import.
         """
         beet_path = self.translate_path_for_beet(path)
-        result = self._run_command(["beet", "-vv", "import", beet_path], timeout=300)
+        if BEET_PRETEND:
+            pretend = "--pretend"
+        else:
+            pretend = "-t"
+        result = self._run_command(["beet", "-vv", "import", pretend, beet_path], timeout=300)
 
         if not result:
             parsed = {
@@ -172,20 +197,35 @@ class BeetImportManager:
         self.save_state()
         return parsed
 
-    def import_with_id(self, path, mb_id=None, discogs_id=None, auto_apply=False):
+
+    def import_with_id(self, path, id=None, auto_apply=False):
         """
         Import a release by specifying a MusicBrainz or Discogs ID.
         If auto_apply is False we run beet and send the 'B' (abort) to get a preview,
         which is then parsed and returned as 'needs_confirmation' with match info.
+
+        Returns:
+            Dict with keys:
+            - status: 'success' | 'needs_confirmation' | 'error'
+            - message: str (error description if status='error')
+            - output: str (raw beet output)
+            - preview: dict (parsed preview if status='needs_confirmation')
         """
-        if not (mb_id or discogs_id):
-            return {"status": "error", "message": "No ID specified"}
+        if not (id):
+            return {
+                "status": "error",
+                "message": "No ID specified",
+                "output": ""
+            }
 
         beet_path = self.translate_path_for_beet(path)
-        if mb_id:
-            beet_args = ["beet", "import", "--search-id", mb_id, beet_path]
+
+        if BEET_PRETEND:
+            pretend = "--pretend"
         else:
-            beet_args = ["beet", "import", "--search", f"discogs_id::{discogs_id}", beet_path]
+            pretend = "-t"
+
+        beet_args = ["beet", "import", pretend, "--search-id", id, beet_path]
 
         # Use "A" to accept, "B" to cancel/preview
         stdin_input = "A\n" if auto_apply else "B\n"
@@ -198,24 +238,65 @@ class BeetImportManager:
         )
 
         if not result:
-            return {"status": "error", "message": "Import failed", "output": ""}
+            return {
+                "status": "error",
+                "message": "Import command failed to execute",
+                "output": ""
+            }
 
         output = (result.stdout or "") + "\n" + (result.stderr or "")
 
-        # If we auto-applied and beet returned 0 assume success (best-effort)
-        if result.returncode == 0 and auto_apply:
-            return {"status": "success", "message": "Import completed!", "output": output}
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Case 1: Auto-apply mode (final import)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if auto_apply:
+            if result.returncode == 0:
+                # ✅ SUCCESS: Update state and return
+                self.current_import = {
+                    "status": "success",
+                    "path": path,
+                    "message": "Import completed successfully",
+                    "output": output
+                }
+                self.save_state()
 
-        # If we previewed (auto_apply=False) we parse the output and provide a
-        # preview structure consistent with parse_beet_output (single match case).
+                return {
+                    "status": "success",
+                    "message": "Import completed successfully",
+                    "output": output
+                }
+            else:
+                # ❌ ERROR: Command failed
+                err = (result.stderr or "").strip() or (result.stdout or "")[-500:]
+                return {
+                    "status": "error",
+                    "message": err or "Import failed with unknown error",
+                    "output": output
+                }
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Case 2: Preview mode (auto_apply=False)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         parsed_preview = parse_beet_output(result.stdout, result.stderr, path)
-        # If parsed_preview is single_match or has_candidates; return it as preview
+
+        # ✅ KEY CHANGE: DON'T overwrite self.current_import during preview
+        # The original state with candidates must remain intact until confirmation
+
+        # If parsed_preview is valid, return it WITHOUT persisting
         if parsed_preview.get('status') in ['single_match', 'has_candidates', 'needs_input', 'low_similarity']:
-            return {"status": "needs_confirmation", "preview": parsed_preview, "output": output}
+            return {
+                "status": "needs_confirmation",
+                "preview": parsed_preview,
+                "output": output
+            }
         else:
-            # otherwise bubble up an error message
+            # Error case during preview
             err = (result.stderr or "").strip() or (result.stdout or "")[-500:]
-            return {"status": "error", "message": err or "Import failed", "output": output}
+            return {
+                "status": "error",
+                "message": err or "Preview failed with unknown error",
+                "output": output
+            }
 
     # ======================================================
     # FILE MANAGEMENT

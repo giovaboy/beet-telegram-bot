@@ -2,9 +2,8 @@
 Handler for inline button callbacks (refactored for unified import schema)
 """
 import time
-from pathlib import Path
-from multiprocessing import context
 import subprocess
+from pathlib import Path
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
@@ -21,7 +20,13 @@ from ui.keyboards import (
     create_import_status_keyboard
 )
 from ui.messages import format_directory_details, format_file_list, format_import_status, get_file_icon
-from handlers.commands import format_and_send_import_status, cleanup_old_status_message
+from core.utils import is_within_import_path
+from handlers.commands import (
+    format_and_send_import_status,
+    cleanup_old_status_message,
+    check_allowed_user,
+    remember_dir_list,
+)
 
 logger = setup_logging()
 MAX_METADATA_FILES = 40
@@ -34,15 +39,31 @@ async def safe_delete_message(bot, chat_id, message_id):
     except Exception as e:
         logger.debug(f"Could not delete message {message_id}: {e}")
 
-def get_selected_dir(manager, idx):
-    dirs = manager.get_import_directories()
-    return dirs[idx] if idx < len(dirs) else None
+def get_selected_dir(context, idx):
+    """
+    Resolve a button index against the directory list the user actually saw
+    (snapshot saved by remember_dir_list), NOT against a freshly re-sorted
+    listing: new downloads or mtime changes would otherwise shift the indexes
+    and e.g. 'delete_final_3' could hit a different directory.
+    """
+    snapshot = context.user_data.get('dir_list') or []
+    if idx is None or idx >= len(snapshot):
+        return None
+    selected = Path(snapshot[idx])
+    if not selected.is_dir() or not is_within_import_path(selected.parent, allow_root=True):
+        return None
+    return selected
 
 
 # --- Core Dispatcher ----------------------------------------------------------
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     query = update.callback_query
+    if not check_allowed_user(update, context):
+        user = update.effective_user
+        logger.warning(f"Unauthorized callback from user {user.id if user else '?'}: {query.data!r}")
+        await query.answer(t('status.access_denied'), show_alert=True)
+        return
     await query.answer()
     action = query.data or ""
     idx = None
@@ -131,7 +152,8 @@ async def handle_refresh_list(query, idx, context, manager):
     
     # 📝 Step 2: Get updated directory list
     dirs = manager.get_import_directories()
-    
+    remember_dir_list(context, dirs)
+
     path_str = IMPORT_PATH
     path_escaped = escape_markdown(path_str, version=2)
     
@@ -168,7 +190,7 @@ async def show_directory_details(query, idx, context, manager):
     - Replace list content + keyboard with details
     """
 
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         await query.answer(t('directory.not_available'), show_alert=True)
         return
@@ -181,7 +203,7 @@ async def show_directory_details(query, idx, context, manager):
     structure = context.user_data.get('current_dir_structure')
     needs_analysis = (
         not structure or
-        context.user_data.get('cached_dir_idx') != idx
+        context.user_data.get('cached_dir_path') != str(selected)
     )
 
     if needs_analysis:
@@ -201,7 +223,7 @@ async def show_directory_details(query, idx, context, manager):
         # 🔍 Perform analysis
         structure = analyze_directory(str(selected))
         context.user_data['current_dir_structure'] = structure
-        context.user_data['cached_dir_idx'] = idx
+        context.user_data['cached_dir_path'] = str(selected)
 
     # 📝 Build details message
     # Get parent path for nested albums
@@ -370,7 +392,7 @@ async def show_images(query, idx, context, manager):
     if not images:
         await query.answer(t('directory.no_images'))
         # Restore keyboard since we're not showing content
-        selected = get_selected_dir(manager, idx)
+        selected = get_selected_dir(context, idx)
         if selected:
             keyboard = create_directory_details_keyboard(
                 idx,
@@ -392,6 +414,10 @@ async def show_images(query, idx, context, manager):
     # 🎯 Step 3: Send images (max 10)
     sent_image_ids = []
     for img in images[:10]:
+        # A downloaded "cover.jpg" may be a symlink to any file in the container
+        if not is_within_import_path(img['path']):
+            logger.warning(f"Skipping image outside import path: {img['path']}")
+            continue
         try:
             with open(img['path'], 'rb') as f:
                 caption = f"{img.get('disc', '') + ': ' if 'disc' in img else ''}{img['name']}"
@@ -592,6 +618,13 @@ async def download_metadata_file(query, idx, file_idx, context, manager):
     # File is within limit - send it
     logger.info("File size OK, proceeding with download")
 
+    # A downloaded "info.txt" may be a symlink to any file in the container
+    # (e.g. /proc/self/environ, which holds the bot token): never follow it out
+    if not is_within_import_path(meta['path']):
+        logger.warning(f"Refusing to send file outside import path: {meta['path']}")
+        await query.message.reply_text("❌ File not available")
+        return
+
     try:
         # Show "sending..." message
         logger.info("Sending 'sending...' message")
@@ -673,8 +706,11 @@ async def download_metadata_file(query, idx, file_idx, context, manager):
 
 
 async def confirm_delete(query, idx, context, manager):
-    dirs = manager.get_import_directories()
-    name = dirs[idx].name if idx < len(dirs) else "Unknown"
+    selected = get_selected_dir(context, idx)
+    if not selected:
+        await query.edit_message_text(t('directory.not_available'))
+        return
+    name = selected.name
 
     # --- ESCAPE AGGIUNTO ---
     name_escaped = escape_markdown(name, version=2)
@@ -687,7 +723,7 @@ async def confirm_delete(query, idx, context, manager):
 
 
 async def delete_directory(query, idx, context, manager):
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         await query.edit_message_text(t('directory.not_available'))
         return
@@ -800,7 +836,7 @@ async def back_to_directory_details_with_cleanup(query, idx, context, manager):
     logger.debug(f"Deleted back button message {query.message.message_id}")
 
     # 🔄 Step 3: Get directory structure and restore keyboard
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         # Directory no longer exists - go back to list
         await send_message_to_chat(context.bot, chat_id, t('directory.not_available'))
@@ -809,11 +845,11 @@ async def back_to_directory_details_with_cleanup(query, idx, context, manager):
 
     # Get or re-analyze structure
     structure = context.user_data.get('current_dir_structure')
-    if not structure or context.user_data.get('cached_dir_idx') != idx:
+    if not structure or context.user_data.get('cached_dir_path') != str(selected):
         # Re-analyze if needed
         structure = analyze_directory(str(selected))
         context.user_data['current_dir_structure'] = structure
-        context.user_data['cached_dir_idx'] = idx
+        context.user_data['cached_dir_path'] = str(selected)
 
     # Build keyboard
     keyboard = create_directory_details_keyboard(
@@ -898,6 +934,7 @@ async def send_message_to_chat(bot, chat_id, text, **kwargs):
 async def back_to_list_via_chat(context, manager, chat_id):
     """Helper to go back to list when we don't have a query"""
     dirs = manager.get_import_directories()
+    remember_dir_list(context, dirs)
 
     if not dirs:
         from config import IMPORT_PATH
@@ -929,6 +966,7 @@ async def back_to_list(query, context, manager):
     UX: EDIT current message to show list
     """
     dirs = manager.get_import_directories()
+    remember_dir_list(context, dirs)
 
     if not dirs:
         path_escaped = escape_markdown(IMPORT_PATH, version=2)
@@ -968,7 +1006,7 @@ async def back_to_directory_details(query, idx, context, manager):
     # 🗑️ Delete the current "Back" message (content view)
     await safe_delete_message(context.bot, query.message.chat.id, query.message.message_id)
 
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         await query.message.reply_text(t('directory.not_available'))
         return
@@ -1097,7 +1135,7 @@ async def cleanup_browse_keyboards(context, chat_id):
     context.user_data.pop('in_directory_details', None)
     context.user_data.pop('current_dir_idx', None)
     context.user_data.pop('current_dir_structure', None)
-    context.user_data.pop('cached_dir_idx', None)
+    context.user_data.pop('cached_dir_path', None)
     context.user_data.pop('metadata_files_list', None)
     
     logger.info("✅ Browse mode cleanup complete")
@@ -1112,7 +1150,7 @@ async def start_import(query, idx, context, manager):
     2. Start import
     3. Show import status
     """
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         await query.message.reply_text(t('directory.not_available'))
         return
@@ -1151,7 +1189,7 @@ async def start_import(query, idx, context, manager):
 
 async def start_import1(query, idx, context, manager):
     """Start the beet import and show results using new unified schema"""
-    selected = get_selected_dir(manager, idx)
+    selected = get_selected_dir(context, idx)
     if not selected:
         await query.message.reply_text(t('directory.not_available'))
         return

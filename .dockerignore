@@ -1,0 +1,23 @@
+# Secrets: never bake tokens into the image
+.env
+.env.*
+*.env
+
+# Runtime state and VCS metadata
+bot_state/
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Not needed at runtime
+*.jpg
+README.md
+LICENSE
+beet-telegram-bot.yml
+Dockerfile
+.dockerignore

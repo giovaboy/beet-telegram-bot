@@ -2,9 +2,30 @@
 Utility helpers for Telegram bot and beet operations
 """
 import logging
+from pathlib import Path
 from telegram import Bot
+from config import IMPORT_PATH
 
 logger = logging.getLogger(__name__)
+
+
+# ======================================================
+# 🔒 PATH SAFETY
+# ======================================================
+
+def is_within_import_path(path, allow_root: bool = False) -> bool:
+    """
+    True if `path`, after resolving symlinks and '..', lies inside IMPORT_PATH.
+    The import root itself is accepted only when allow_root=True.
+    """
+    try:
+        root = Path(IMPORT_PATH).resolve()
+        resolved = Path(path).resolve()
+    except (OSError, RuntimeError):
+        return False
+    if resolved == root:
+        return allow_root
+    return resolved.is_relative_to(root)
 
 # ======================================================
 # 💬 TELEGRAM MESSAGE HELPERS

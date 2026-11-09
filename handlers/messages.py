@@ -6,11 +6,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from i18n.translations import t
 from config import BEET_CONTAINER, BEET_USER
-from handlers.commands import cleanup_old_status_message
+from handlers.commands import cleanup_old_status_message, check_allowed_user
 from handlers.callbacks import import_with_mb_id, import_with_discogs_id
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Handler for messages (entered IDs)"""
+    if not check_allowed_user(update, context):
+        return
     if 'waiting_for' not in context.user_data or not manager.current_import:
         return
 

@@ -41,6 +41,14 @@ def check_allowed_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
         logger.error(f"Error checking user: {e}")
         return False
 
+def remember_dir_list(context: ContextTypes.DEFAULT_TYPE, dirs) -> None:
+    """
+    Save the directory list exactly as shown to the user, so that button
+    indexes (import_N, delete_final_N, ...) always refer to what the user saw.
+    """
+    context.user_data['dir_list'] = [str(d) for d in dirs]
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
     """Handler for /start"""
     if not check_allowed_user(update, context):
@@ -102,6 +110,7 @@ async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manag
 
     dirs = manager.get_import_directories()
     logger.info(f"Found {len(dirs)} directories")
+    remember_dir_list(context, dirs)
 
     chat_id = update.effective_chat.id
     
@@ -279,6 +288,7 @@ async def list_imports2(update: Update, context: ContextTypes.DEFAULT_TYPE, mana
     logger.info("User check passed")
     dirs = manager.get_import_directories()
     logger.info(f"Found {len(dirs)} directories")
+    remember_dir_list(context, dirs)
 
     if not dirs:
         path_escaped = escape_markdown(IMPORT_PATH, version=2)

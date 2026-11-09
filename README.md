@@ -87,7 +87,13 @@ mkdir -p bot_state
 
 ### 4. Configure Environment
 
-Create `.env` file:
+Copy the template and fill in your values (`.env` is git-ignored, never commit it):
+
+```bash
+cp .env.example .env
+```
+
+Full list of supported variables:
 
 ```env
 # Telegram Configuration

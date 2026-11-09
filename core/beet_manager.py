@@ -74,13 +74,21 @@ class BeetImportManager:
         return albums
 
     def _validate_path(self, path):
-        """Ensure the path is inside the import root"""
-        dir_path = Path(path)
-        if not dir_path.exists():
+        """
+        Ensure the entry lives strictly inside the import root.
+        Checks where the entry itself is located (its parent, fully resolved),
+        not where it points to: a symlink inside the import root is accepted
+        (rmtree refuses to delete symlinks anyway, skip just moves the link).
+        Rejects things like '/downloads2/x' or '/downloads/../music'.
+        """
+        dir_path = Path(os.path.abspath(path))  # lexically collapses '..'
+        if not dir_path.exists() and not dir_path.is_symlink():
             return "error_not_found"
-        if str(dir_path) == str(IMPORT_PATH):
+        root = Path(IMPORT_PATH).resolve()
+        location = dir_path.parent.resolve() / dir_path.name
+        if location == root:
             return "error_root"
-        if not str(dir_path).startswith(str(IMPORT_PATH)):
+        if not location.is_relative_to(root):
             return "error_not_found"
         return None
 
@@ -323,6 +331,10 @@ class BeetImportManager:
 
     def skip_item(self, path):
         """Move a directory to 'skipped' folder"""
+        err = self._validate_path(path)
+        if err:
+            return {"status": "error", "message": err}
+
         skip_dir = Path(IMPORT_PATH) / "skipped"
         skip_dir.mkdir(exist_ok=True)
         src = Path(path)

@@ -3,15 +3,20 @@
 Beet Telegram Bot - Interactive music import manager
 Main entry point
 """
-from telegram import MenuButtonCommands, BotCommand
+from telegram import MenuButtonCommands, BotCommand, Update
+from telegram.constants import ParseMode
+from telegram.error import BadRequest, NetworkError
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
+    PersistenceInput,
+    PicklePersistence,
     filters,
 )
-from config import TELEGRAM_TOKEN, CUSTOM_COMMANDS, setup_logging
+from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, CUSTOM_COMMANDS, PERSISTENCE_FILE, setup_logging
+from i18n.translations import t
 from core.beet_manager import BeetImportManager
 from core.plugin_detector import get_plugin_detector
 from handlers.commands import start, list_imports, status, cancel_import, execute_custom_command
@@ -23,6 +28,26 @@ logger = setup_logging()
 
 # Initialize the manager
 manager = BeetImportManager()
+
+
+async def on_error(update: object, context) -> None:
+    """Log every unhandled error; tell the user instead of failing silently."""
+    error = context.error
+    # Transient connection problems with Telegram: the library retries by itself
+    if isinstance(error, NetworkError) and not isinstance(error, BadRequest):
+        logger.warning(f"Telegram network error: {error}")
+        return
+
+    logger.error("Unhandled error while processing an update", exc_info=error)
+
+    chat = update.effective_chat if isinstance(update, Update) else None
+    if chat is None or str(chat.id) != str(TELEGRAM_CHAT_ID):
+        return
+    try:
+        await context.bot.send_message(chat_id=chat.id, text=t('panel.error'),
+                                       parse_mode=ParseMode.MARKDOWN_V2)
+    except Exception as e:
+        logger.error(f"Could not notify the user about the error: {e}")
 
 
 def main():
@@ -40,7 +65,16 @@ def main():
     sources = detector.get_metadata_sources()
     logger.info(f"📚 Available metadata sources: {', '.join(sources)}")
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    # Keep per-chat state (active panel, list snapshot, pending prompts) across restarts,
+    # so buttons shown before a restart keep working instead of breaking the flow.
+    persistence = PicklePersistence(
+        filepath=PERSISTENCE_FILE,
+        store_data=PersistenceInput(bot_data=False, chat_data=False, user_data=True, callback_data=False),
+    )
+    # Updates are processed one at a time (PTB default): a click is always
+    # evaluated against the panel as left by the previous one.
+    app = Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).build()
+    app.add_error_handler(on_error)
 
     # Wrapper functions to pass the manager instance
     async def start_wrapper(update, context):

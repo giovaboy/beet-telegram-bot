@@ -1,7 +1,7 @@
 {
     "commands": {
         "start": "🎵 *Beet Import Manager*\n\nAvailable commands:\n/list \\- Show import directories\n/status \\- Current import status\n/cancel \\- Cancel current import\n/help \\- Help",
-        "list_empty": "✅ No directories to import!\n\nPut album folders in: \\`{path}\\`",
+        "list_empty": "✅ No directories to import\\!\n\nPut album folders in: \\`{path}\\`",
         "list_header": "📂 *Directories to import* \\({count} total\\)\n\nSelect a directory to view details:",
         "no_import": "✅ No import in progress\n\nUse /list to see available directories",
         "import_cancelled": "🚫 Import cancelled",
@@ -16,8 +16,14 @@
         "output_file_caption": "Full output of `{display_action}`",
         "exec_timeout": "❌ **Error:** Command `{display_action}` timed out \\({seconds}s\\)\\.",
         "exec_unexpected_error": "❌ **Unexpected error during execution:** {error}",
-        "error_stderr":"**stderr:** {stderr_preview}",
-        "truncated": "_ \\.\\.\\. output truncated _"
+        "error_stderr": "**stderr:** {stderr_preview}",
+        "truncated": "_ \\.\\.\\. output truncated _",
+        "import_in_progress": "Import in progress",
+        "import_active_help": "Finish or cancel the current import before browsing other directories\\.",
+        "view_current_import": "show the current import",
+        "cancel_current_import": "cancel it",
+        "custom_not_found": "❌ Custom command '{command_name}' not found in configuration.",
+        "file_caption": "Full output of {display_action}"
     },
     "directory": {
         "analyzing": "🔍 Analyzing \\`{name}\\`\\.\\.\\.",
@@ -58,7 +64,8 @@
         "success": "🗑️ Directory successfully deleted: {name}",
         "error": "❌ Error during deletion: {error}",
         "error_root": "❌ Cannot delete root import directory\\!",
-        "error_not_found": "❌ Directory not found or out of scope"
+        "error_not_found": "❌ Directory not found or out of scope",
+        "deleted_banner": "🗑️ Deleted: `{name}`\n\n"
     },
     "import": {
         "starting": "⏳ Starting import of `{name}`\\.\\.\\.",
@@ -66,7 +73,7 @@
         "with_source_id": "⏳ Importing with {source} ID:\n`{id}`\\.\\.\\.",
         "with_mb_id": "⏳ Importing with MusicBrainz ID\\.\\.\\.",
         "with_discogs_id": "⏳ Importing with Discogs ID\\.\\.\\.",
-        "as_is": "⏳ Importing as-is \\(\\U\\)\\.\\.\\.",
+        "as_is": "⏳ Importing as\\-is \\(U\\)\\.\\.\\.",
         "force": "⏳ Forcing import with first match \\(\\-a\\)\\.\\.\\.",
         "retrying": "🔄 Retrying import\\.\\.\\.",
         "searching": "🔍 Searching album information\\.\\.\\.",
@@ -77,7 +84,10 @@
         "checking_match": "🔍 Checking match for ID: `{id}`\\.\\.\\.",
         "confirming": "✅ Confirming import with ID: `{id}`\\.\\.\\.",
         "preview_cancelled": "❌ Import preview cancelled\\.",
-        "with_discogs_id_short": "⏳ Import with Discogs ID: `{id}`\\.\\.\\."
+        "with_discogs_id_short": "⏳ Import with Discogs ID: `{id}`\\.\\.\\.",
+        "running": "⏳ Importing `{name}`\\.\\.\\.\n\n_This can take a few minutes\\._",
+        "loading_preview": "🔎 Loading preview \\({source}\\)\\.\\.\\.",
+        "skipping": "⏭️ Moving to skipped\\.\\.\\."
     },
     "status": {
         "header": "*Import Status*",
@@ -105,7 +115,11 @@
         "no_changes": "✅ No changes found",
         "ask_confirm": "✅ *Do you confirm you want to proceed with this import\\?*",
         "multiple_candidates": "Candidates:",
-        "preview": "Import preview"
+        "preview": "Import preview",
+        "completed_named": "✅ *Import completed*\n📁 `{name}`",
+        "cancelled_named": "🚫 *Import cancelled*\n📁 `{name}`",
+        "skipped_named": "⏭️ *Skipped*\n📁 `{name}`\n➡️ {message}",
+        "error_banner": "❌ *Last action failed:*\n`{error}`\n\n"
     },
     "buttons": {
         "refresh": "🔄 Refresh list",
@@ -134,13 +148,18 @@
         "confirm_import": "✅ Confirm Import",
         "cancel_preview": "❌ Cancel",
         "back_to_list": "◀️ Back to list",
-        "back_to_metadata": "◀️ Back to metadata list"
+        "back_to_metadata": "◀️ Back to metadata list",
+        "show_status": "📋 Show current import",
+        "confirm_as_is": "✅ Yes, import as-is",
+        "open_list": "📂 Directory list"
     },
     "prompts": {
         "mb_id": "🔍 *Enter MusicBrainz ID*\n\nFormat: `xxxxxxxx\\-xxxx\\-xxxx\\-xxxx\\-xxxxxxxxxxxx`\n\nSearch at: https://musicbrainz\\.org",
         "discogs_id": "💿 *Enter Discogs ID*\n\nFormat:`\\[r123456\\]`\n\nSearch at: https://discogs\\.com",
-        "confirm_as_is": "⚠️ Confirm import as-is\\?\nType \\'YES\\' to confirm",
-        "cancelled": "❌ Import cancelled"
+        "confirm_as_is": "⚠️ *Import as\\-is?*\n\n📁 `{name}`\n\nThe files will be imported with their current tags, without matching them to MusicBrainz or Discogs\\.",
+        "cancelled": "❌ Import cancelled",
+        "invalid_mb_id": "❌ Not a valid MusicBrainz ID or URL\\. Try again or cancel\\.\n\n",
+        "invalid_discogs_id": "❌ Not a valid Discogs ID or URL\\. Try again or cancel\\.\n\n"
     },
     "fields": {
         "directory": "📁 Directory: `{name}`",
@@ -169,7 +188,9 @@
         "import_expired": "Import expired\\.",
         "invalid_callback": "Invalid Callback\\.",
         "invalid_source": "Invalid Source\\.",
-        "no_import_active": "No import active\\."
+        "no_import_active": "No import active\\.",
+        "no_id_for_candidate": "❌ This candidate has no MusicBrainz/Discogs ID\\.",
+        "no_pending_import": "No pending import\\."
     },
     "info": {
         "release_details": "Release details",
@@ -184,5 +205,22 @@
         "catalog_number": "Catalog number",
         "length": "Length",
         "no_data": "No information available\\."
+    },
+    "panel": {
+        "error": "⚠️ Something went wrong\\. Use /status or /list to continue\\."
+    },
+    "toasts": {
+        "expired": "⌛ This message is no longer active",
+        "deleted": "🗑️ Deleted",
+        "file_sent": "✅ File sent",
+        "file_too_large": "⚠️ File too large for Telegram ({size} MB, limit {limit} MB)",
+        "file_unavailable": "❌ File not available",
+        "no_images": "No images found",
+        "no_metadata": "No metadata files found",
+        "no_import": "No import in progress",
+        "no_id_for_match": "This match has no MusicBrainz/Discogs ID",
+        "candidates_changed": "The candidate list changed, please select again",
+        "preview_expired": "⏳ Preview expired, please select the release again",
+        "nothing_to_confirm": "Nothing to confirm"
     }
 }

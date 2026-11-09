@@ -10,7 +10,7 @@ import pytest
 
 import core.utils as utils
 import core.beet_manager as beet_manager
-import handlers.callbacks as callbacks
+import handlers.flows as flows
 from core.beet_manager import BeetImportManager
 
 
@@ -100,14 +100,14 @@ def test_selection_is_stable_when_new_dirs_appear(import_root):
     context = _context(shown)
     # A new download arrives after the list was shown: indexes must not shift
     (import_root / "New Download").mkdir()
-    assert callbacks.get_selected_dir(context, 1) == shown[1]
+    assert flows.get_selected_dir(context, 1) == shown[1]
 
 
 def test_selection_out_of_range_or_missing(import_root):
     context = _context([import_root / "Album A"])
-    assert callbacks.get_selected_dir(context, None) is None
-    assert callbacks.get_selected_dir(context, 5) is None
-    assert callbacks.get_selected_dir(SimpleNamespace(user_data={}), 0) is None
+    assert flows.get_selected_dir(context, None) is None
+    assert flows.get_selected_dir(context, 5) is None
+    assert flows.get_selected_dir(SimpleNamespace(user_data={}), 0) is None
 
 
 def test_selection_of_deleted_dir_returns_none(import_root):
@@ -115,4 +115,17 @@ def test_selection_of_deleted_dir_returns_none(import_root):
     gone.mkdir()
     context = _context([gone])
     gone.rmdir()
-    assert callbacks.get_selected_dir(context, 0) is None
+    assert flows.get_selected_dir(context, 0) is None
+
+
+# ── Skipped albums stay out of the list ───────────────────────────────
+
+def test_skipped_albums_are_not_listed(tmp_path):
+    from core.directory_analyzer import find_importable_albums
+    root = tmp_path / "downloads"
+    for album in ("Album A", "skipped/Album B", "Collection/skipped/Album C"):
+        (root / album).mkdir(parents=True)
+        (root / album / "01.flac").write_bytes(b"x")
+    names = sorted(p.name for p in find_importable_albums(root))
+    # only the top-level 'skipped' folder is special; a nested one is a normal folder
+    assert names == ["Album A", "Album C"]

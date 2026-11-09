@@ -313,6 +313,27 @@ class BeetImportManager:
                 "output": output
             }
 
+    def import_as_is(self, path):
+        """
+        Import keeping the current tags (answers 'U' = use as-is to beet's prompt).
+
+        Returns {'status': 'success'|'error', 'message': str, 'output': str}
+        """
+        beet_path = self.translate_path_for_beet(path)
+        beet_args = ["beet", "import"]
+        if BEET_PRETEND:
+            beet_args.append("--pretend")
+        beet_args.append(beet_path)
+
+        result = self._run_command(beet_args, input_data="U\n", timeout=600, interactive=True)
+        output = (result.stdout or "") + "\n" + (result.stderr or "")
+
+        if result.returncode == 0:
+            return {"status": "success", "message": "Import completed successfully", "output": output}
+
+        err = (result.stderr or "").strip() or (result.stdout or "")[-500:]
+        return {"status": "error", "message": err or "Import failed with unknown error", "output": output}
+
     # ======================================================
     # FILE MANAGEMENT
     # ======================================================

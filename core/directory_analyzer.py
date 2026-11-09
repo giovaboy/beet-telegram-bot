@@ -91,8 +91,12 @@ def find_importable_albums(root_path: Path) -> list:
             
             # Otherwise, scan subdirectories
             for subdir in path.iterdir():
-                if subdir.is_dir() and not subdir.name.startswith('.'):
-                    scan_recursive(subdir)
+                if not subdir.is_dir() or subdir.name.startswith('.'):
+                    continue
+                # Albums moved away with [Skip] must not show up again
+                if path == root_path and subdir.name == 'skipped':
+                    continue
+                scan_recursive(subdir)
                     
         except PermissionError:
             # Skip directories we can't read

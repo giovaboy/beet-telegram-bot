@@ -34,12 +34,14 @@ beet-telegram-bot/
 │
 ├── handlers/                   # Telegram event handlers
 │   ├── commands.py            # Bot commands (/start, /list, /status, etc.)
-│   ├── callbacks.py           # Inline button handlers with validation
-│   └── messages.py            # Text input handlers (IDs, confirmations)
+│   ├── callbacks.py           # Inline button dispatcher (rejects expired buttons)
+│   ├── flows.py               # Screens and import flows, rendered into the panel
+│   └── messages.py            # Text input handler (release IDs)
 │
 ├── ui/                         # User interface components
 │   ├── keyboards.py           # Dynamic keyboard generation
-│   └── messages.py            # Message formatting with MarkdownV2
+│   ├── messages.py            # Message formatting with MarkdownV2
+│   └── panel.py               # Single interactive message per chat
 │
 ├── i18n/                       # Internationalization
 │   ├── translations.py        # Translation system
@@ -48,7 +50,8 @@ beet-telegram-bot/
 │       └── en.json            # English translations
 │
 └── bot_state/                  # Runtime data (auto-created)
-    └── beet_import_state.json # Persistent import state
+    ├── beet_import_state.json # Persistent import state
+    └── beet_bot_persistence.pickle # Chat state (active panel, list snapshot)
 ```
 
 ## 🚀 Quick Start
@@ -433,6 +436,20 @@ Example:
 - Current import state saved after each step
 - Survives bot restarts
 - Stored in `/tmp/beet_import_state.json`
+- Chat state (active panel, directory list, pending prompts) stored in
+  `/tmp/beet_bot_persistence.pickle`, so buttons keep working after a restart
+
+### 🧭 One panel, no stale buttons
+
+The bot keeps **one interactive message** per chat and edits it at every step
+(list → details → import status → preview → result). Only that message has buttons.
+
+- Buttons left on older messages, double clicks and clicks made while beet is
+  still running are answered with *"This message is no longer active"* and do nothing.
+- While beet runs, the panel shows a ⏳ screen without buttons; the bot stays responsive.
+- `/list` and `/status` bring the panel back to the bottom of the chat.
+- If an action fails, the import status is shown again with the error on top,
+  so you can retry or choose another option.
 
 **Resume After Restart:**
 ```bash

@@ -26,6 +26,8 @@ LANGUAGE = os.environ.get('LANGUAGE', 'en')
 
 # State file
 STATE_FILE = '/tmp/beet_import_state.json'
+# Per-chat bot state (active panel, directory list snapshot...), survives restarts
+PERSISTENCE_FILE = os.path.join(os.path.dirname(STATE_FILE), 'beet_bot_persistence.pickle')
 
 # Supported file extensions
 AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wav', '.wv', '.ape'}

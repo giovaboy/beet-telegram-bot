@@ -1,0 +1,53 @@
+# Test Case: Single match with high similarity
+# Album: Pink Floyd - The Wall
+# Artist: Pink Floyd
+# Source: MusicBrainz
+# Expected Status: single_match
+# Expected Similarity: >95
+# Notes: Classic album, should always match well
+# Beet Version: 1.6.0
+# Date Captured: 2025-01-15
+# ---
+Sending event: import_task_start
+user configuration: /config/config.yaml
+data directory: /config
+library database: /config/musiclibrary.blb
+library directory: /music
+plugins: discogs fetchart lastgenre scrub embedart replaygain
+
+Tagging:
+    Pink Floyd - The Wall
+Import started: /downloads/Pink_Floyd-The_Wall
+
+musicbrainz: Sending event: albuminfo_received
+musicbrainz: Getting album for ID: 5dbf2c34-cef5-4d4c-9e28-5a2d4e5e8b68
+musicbrainz: Getting tracklist for ID: 5dbf2c34-cef5-4d4c-9e28-5a2d4e5e8b68
+
+match: Candidate: Pink Floyd - The Wall (5dbf2c34-cef5-4d4c-9e28-5a2d4e5e8b68)
+Distance: 0.045
+
+Looking up: /downloads/Pink_Floyd-The_Wall
+/downloads/Pink_Floyd-The_Wall (26 items)
+  Pink Floyd - The Wall
+
+Match (95.5%):
+  Pink Floyd - The Wall
+* Artist: Pink Floyd
+* Album: The Wall
+* Year: 1979
+* Tracks: 26
+* Media: 2 × Vinyl
+* Label: Columbia
+* Catalog: PC2 36183
+MusicBrainz, 2 × Vinyl, LP, Album, 1979, US, Columbia, PC2 36183
+https://musicbrainz.org/release/5dbf2c34-cef5-4d4c-9e28-5a2d4e5e8b68
+
+Differences:
+≠ artist: Pink Floyd -> Pink Floyd, The
+≠ (#1) In the Flesh? (3:20) -> (#1) In the Flesh? (3:19)
+≠ (#13) Run Like Hell (4:19) -> (#13) Run Like Hell (4:20)
+≠ (#26) Outside the Wall (1:41) -> (#26) Outside the Wall (1:42)
+
+(Similarity: 95.5%, penalties: {artist: 0.025, track_length: 0.020})
+
+Apply this match? [Y/n/s/e/q]

@@ -1,18 +1,50 @@
 """
 Creation of inline keyboards for Telegram (refactored for new unified import model)
 """
+from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from i18n.translations import t
+from config import IMPORT_PATH
 from core.plugin_detector import has_discogs_plugin
+from core.directory_analyzer import get_relative_path
 
 
 def create_directory_list_keyboard(dirs):
-    """Creates keyboard with directory list"""
+    """
+    Creates keyboard with directory list.
+    
+    Shows relative path for nested albums (e.g., "Jazz / Miles Davis")
+    """
     keyboard = []
-    for i, d in enumerate(dirs[:100]):
+    root_path = Path(IMPORT_PATH)
+    
+    for i, d in enumerate(dirs[:100]):  # Limit to 100 albums
+        # Calculate size
         size = sum(f.stat().st_size for f in d.rglob('*') if f.is_file())
         size_mb = size / (1024 * 1024)
-        button_text = f"📁 {d.name[:35]} ({size_mb:.0f} MB)"
+        
+        # Get display name with path hierarchy
+        display_name = get_relative_path(d, root_path)
+        
+        # Truncate if too long
+        max_length = 35
+        if len(display_name) > max_length:
+            # Try to keep last part (album name) visible
+            parts = display_name.split(' / ')
+            if len(parts) > 1:
+                # Show "Parent / ... / Album" if nested
+                display_name = f"{parts[0]} / ... / {parts[-1]}"
+                if len(display_name) > max_length:
+                    display_name = display_name[:max_length-3] + "..."
+            else:
+                # Single level, just truncate
+                display_name = display_name[:max_length-3] + "..."
+        
+        # Add folder icon (different for nested)
+        is_nested = '/' in get_relative_path(d, root_path)
+        icon = "📂" if is_nested else "📁"
+        
+        button_text = f"{icon} {display_name} ({size_mb:.0f} MB)"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"import_{i}")])
 
     keyboard.append([
@@ -25,6 +57,9 @@ def create_directory_list_keyboard(dirs):
 def create_directory_details_keyboard(idx, structure, search_query):
     """Creates keyboard for directory details"""
     keyboard = []
+    
+    # Images and Metadata row
+    button_row = []
 
     # Images
     total_images = len(structure.get('images', []))
@@ -33,13 +68,25 @@ def create_directory_details_keyboard(idx, structure, search_query):
             total_images += len(disc.get('images', []))
 
     if total_images > 0:
+        button_row.append(InlineKeyboardButton(t('buttons.view_images', count=total_images), callback_data=f"images_{idx}"))
+    
+    # Always add "View files" button
+    button_row.append(InlineKeyboardButton(t('buttons.view_files'), callback_data=f"files_{idx}"))
+    
+    if button_row:
+        keyboard.append(button_row)
+    
+    # 🎯 Metadata files button
+    total_metadata = len(structure.get('metadata_files', []))
+    if structure['type'] == 'multi_disc':
+        for disc in structure['discs']:
+            total_metadata += len(disc.get('metadata_files', []))
+    
+    if total_metadata > 0:
         keyboard.append([
-            InlineKeyboardButton(t('buttons.view_images', count=total_images), callback_data=f"images_{idx}"),
-            InlineKeyboardButton(t('buttons.view_files'), callback_data=f"files_{idx}")
+            InlineKeyboardButton(t('buttons.view_metadata', count=total_metadata), callback_data=f"metadata_{idx}")
         ])
-    else:
-        keyboard.append([InlineKeyboardButton(t('buttons.view_files'), callback_data=f"files_{idx}")])
-
+        
     # Search buttons - adapt based on enabled plugins
     search_row = []
 
@@ -165,7 +212,6 @@ def create_import_status_keyboard(result, context=None):
     ])
 
     return InlineKeyboardMarkup(keyboard)
-
 
 
 def create_back_keyboard(idx):

@@ -30,6 +30,7 @@ STATE_FILE = '/tmp/beet_import_state.json'
 # Supported file extensions
 AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wav', '.wv', '.ape'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+METADATA_EXTENSIONS = {'.pdf', '.nfo', '.txt', '.log', '.cue', '.m3u'}
 
 # Diff style for displaying differences
 # Options: 'char', 'word', 'smart', 'simple'

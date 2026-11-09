@@ -1,6 +1,8 @@
 services:
   beet-telegram-bot:
-    build: .
+    build:
+      context: .
+      target: production
     container_name: beet-telegram-bot
     restart: unless-stopped
     environment:

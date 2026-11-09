@@ -21,7 +21,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
     # Case 1: MusicBrainz ID
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if waiting_for == 'mb_id':
-        await update.message.reply_text(t('import.with_mb_id'), parse_mode='MarkdownV2')
+        #await update.message.reply_text(t('import.with_mb_id'), parse_mode='MarkdownV2')
         await import_with_mb_id(
             update=update,
             mb_id=text,
@@ -34,7 +34,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
     # Case 2: Discogs ID
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif waiting_for == 'discogs_id':
-        await update.message.reply_text(t('import.with_discogs_id'), parse_mode='MarkdownV2')
+        #await update.message.reply_text(t('import.with_discogs_id'), parse_mode='MarkdownV2')
         await import_with_discogs_id(
             update=update,
             discogs_id=text,
@@ -48,7 +48,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, man
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif waiting_for == 'confirm_as_is':
         # Check if the user confirms the "as-is" import
-        if text.upper() in ['SI', 'YES', 'Y', 'OK', 'SÌ']:
+        if text.upper() == 'YES':
             await update.message.reply_text(t('import.as_is'), parse_mode='MarkdownV2')
 
             try:

@@ -5,13 +5,17 @@ import subprocess
 import os
 import tempfile
 import asyncio
+from pathlib import Path
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
 from i18n.translations import t
 from config import IMPORT_PATH, TELEGRAM_CHAT_ID, CUSTOM_COMMANDS, BEET_CONTAINER, BEET_USER, setup_logging
 from ui.keyboards import create_directory_list_keyboard, create_import_status_keyboard
 from ui.messages import format_import_status
+from core.telegram_utils import safe_reply, is_message_too_long, truncate_message
+from core.utils import safe_delete_message
 
 logger = setup_logging()
 
@@ -50,7 +54,94 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
 
 
 async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
-    """Shows the list of directories to import"""
+    """
+    Shows the list of directories to import.
+    
+    Mode Detection:
+    - If import is active → BLOCK with helpful message
+    - If no import → ALLOW browsing
+    
+    UX Strategy:
+    - ALWAYS create NEW message at bottom of chat
+    - DELETE old list message if exists
+    - Result: List is always the last message (fresh and clean)
+    """
+    logger.info("list_imports called")
+
+    if not check_allowed_user(update, context):
+        await update.message.reply_text(t('status.access_denied'))
+        return
+
+    logger.info("User check passed")
+    
+    # 🎯 CHECK: Is there an active import?
+    if manager.current_import:
+        logger.info("Import in progress - blocking /list command")
+        
+        # Show helpful message with escape routes
+        path = manager.current_import.get('path', 'Unknown')
+        path_name = Path(path).name if path != 'Unknown' else 'Unknown'
+        path_escaped = escape_markdown(path_name, version=2)
+        
+        blocked_msg = (
+            f"⚠️ *{t('commands.import_in_progress')}*\n\n"
+            f"📁 {path_escaped}\n\n"
+            f"{t('commands.import_active_help')}\n\n"
+            f"• `/status` \\- {t('commands.view_current_import')}\n"
+            f"• `/cancel` \\- {t('commands.cancel_current_import')}"
+        )
+        
+        await update.message.reply_text(
+            blocked_msg,
+            parse_mode='MarkdownV2'
+        )
+        return
+
+    # No import active - proceed normally
+    logger.info("No import active - showing directory list")
+
+    dirs = manager.get_import_directories()
+    logger.info(f"Found {len(dirs)} directories")
+
+    chat_id = update.effective_chat.id
+    
+    # 🗑️ Step 1: DELETE old list message if exists
+    old_msg_id = context.user_data.get('list_message_id')
+    if old_msg_id:
+        await safe_delete_message(context.bot, chat_id, old_msg_id)
+        logger.debug(f"Deleted old list message {old_msg_id}")
+        context.user_data.pop('list_message_id', None)
+    
+    # 📝 Step 2: Prepare content
+    if not dirs:
+        path_escaped = escape_markdown(IMPORT_PATH, version=2)
+        text = t('commands.list_empty', path=path_escaped)
+        keyboard = None
+    else:
+        text = t('commands.list_header', count=len(dirs))
+        keyboard = create_directory_list_keyboard(dirs)
+    
+    # 📩 Step 3: ALWAYS create NEW message (at bottom of chat)
+    sent = await update.message.reply_text(
+        text,
+        parse_mode='MarkdownV2',
+        reply_markup=keyboard
+    )
+    
+    # 💾 Step 4: Save new message ID
+    context.user_data['list_message_id'] = sent.message_id
+    logger.debug(f"✅ Created fresh list message: {sent.message_id}")
+
+
+async def list_imports4(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
+    """
+    Shows the list of directories to import.
+    
+    UX Strategy:
+    - ALWAYS create NEW message at bottom of chat
+    - DELETE old list message if exists
+    - Result: List is always the last message (fresh and clean)
+    """
     logger.info("list_imports called")
 
     if not check_allowed_user(update, context):
@@ -63,51 +154,119 @@ async def list_imports(update: Update, context: ContextTypes.DEFAULT_TYPE, manag
     logger.info(f"Found {len(dirs)} directories")
 
     chat_id = update.effective_chat.id
-    text = t('commands.list_header', count=len(dirs))
-
-    # 🧹 Pulisci tastiera precedente se presente
+    
+    # 🗑️ Step 1: DELETE old list message if exists
     old_msg_id = context.user_data.get('list_message_id')
     if old_msg_id:
-        try:
-            # Rimuove tastiera e testo precedente, per evitare duplicati
-            await context.bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=old_msg_id,
-                reply_markup=None
-            )
-            logger.debug(f"Removed old list keyboard from message {old_msg_id}")
-        except Exception as e:
-            logger.debug(f"Could not remove old keyboard: {e}")
-            try:
-                # Come fallback, elimina il messaggio
-                await safe_delete_message(context.bot, chat_id, old_msg_id)
-                logger.debug(f"Deleted old list message {old_msg_id}")
-            except Exception as e2:
-                logger.debug(f"Could not delete old message: {e2}")
+        await safe_delete_message(context.bot, chat_id, old_msg_id)
+        logger.debug(f"Deleted old list message {old_msg_id}")
         context.user_data.pop('list_message_id', None)
-
-    # 🪣 Se non ci sono directory, mostra messaggio vuoto e basta
+    
+    # 📝 Step 2: Prepare content
     if not dirs:
         path_escaped = escape_markdown(IMPORT_PATH, version=2)
-        msg = await update.message.reply_text(
-            t('commands.list_empty', path=path_escaped),
-            parse_mode='MarkdownV2'
-        )
+        text = t('commands.list_empty', path=path_escaped)
+        keyboard = None
+    else:
+        text = t('commands.list_header', count=len(dirs))
+        keyboard = create_directory_list_keyboard(dirs)
+    
+    # 📩 Step 3: ALWAYS create NEW message (at bottom of chat)
+    sent = await update.message.reply_text(
+        text,
+        parse_mode='MarkdownV2',
+        reply_markup=keyboard
+    )
+    
+    # 💾 Step 4: Save new message ID
+    context.user_data['list_message_id'] = sent.message_id
+    logger.debug(f"✅ Created fresh list message: {sent.message_id}")
+
+
+
+async def list_imports3(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
+    """
+    Shows the list of directories to import.
+
+    UX Strategy:
+    - First call: Create new message
+    - Subsequent calls: Try to EDIT existing message
+    - If edit fails: DELETE old + CREATE new
+    - Result: Only ONE list message active at a time
+    """
+    logger.info("list_imports called")
+
+    if not check_allowed_user(update, context):
+        await update.message.reply_text(t('status.access_denied'))
         return
 
-    # 🎛️ Crea nuova tastiera
-    keyboard = create_directory_list_keyboard(dirs)
+    logger.info("User check passed")
 
-    # 📩 Invia nuovo messaggio
+    dirs = manager.get_import_directories()
+    logger.info(f"Found {len(dirs)} directories")
+
+    chat_id = update.effective_chat.id
+
+    # 🧹 Check if we have an existing list message
+    old_msg_id = context.user_data.get('list_message_id')
+
+    # 📝 Prepare content
+    if not dirs:
+        path_escaped = escape_markdown(IMPORT_PATH, version=2)
+        text = t('commands.list_empty', path=path_escaped)
+        keyboard = None
+    else:
+        text = t('commands.list_header', count=len(dirs))
+        keyboard = create_directory_list_keyboard(dirs)
+
+    # 🔄 Strategy 1: Try to EDIT existing message
+    if old_msg_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=old_msg_id,
+                text=text,
+                parse_mode='MarkdownV2',
+                reply_markup=keyboard
+            )
+            logger.debug(f"✅ Edited existing list message {old_msg_id}")
+            await update.message.reply_text(
+                "✅ " + t('list.refreshed'),
+                reply_to_message_id=old_msg_id
+            )
+            return
+
+        except BadRequest as e:
+            if "message is not modified" in str(e).lower():
+                # Content unchanged, just acknowledge
+                logger.debug("List unchanged, no edit needed")
+                await update.message.reply_text(
+                    "ℹ️ " + t('list.no_changes'),
+                    reply_to_message_id=old_msg_id
+                )
+                return
+            else:
+                # Edit failed (message deleted/too old) → fallback to delete + create
+                logger.debug(f"Edit failed: {e}, will delete and recreate")
+                await safe_delete_message(context.bot, chat_id, old_msg_id)
+                context.user_data.pop('list_message_id', None)
+
+        except Exception as e:
+            # Unexpected error → fallback
+            logger.warning(f"Unexpected error editing list: {e}")
+            await safe_delete_message(context.bot, chat_id, old_msg_id)
+            context.user_data.pop('list_message_id', None)
+
+    # 📩 Strategy 2: Create NEW message (first time or after cleanup)
     sent = await update.message.reply_text(
         text,
         parse_mode='MarkdownV2',
         reply_markup=keyboard
     )
 
-    # 💾 Salva ID del messaggio corrente
+    # 💾 Save new message ID
     context.user_data['list_message_id'] = sent.message_id
-    logger.debug(f"New list message created: {sent.message_id}")
+    logger.debug(f"✅ Created new list message: {sent.message_id}")
 
 
 async def list_imports2(update: Update, context: ContextTypes.DEFAULT_TYPE, manager):
@@ -197,67 +356,124 @@ async def cancel_import(update: Update, context: ContextTypes.DEFAULT_TYPE, mana
 
 
 async def format_and_send_import_status(message, result, manager, context=None):
-    """Helper to format and send import status"""
-
-    # --- NOTA ---
-    # Assumiamo che format_import_status(result) restituisca una stringa
-    # già formattata e con escape corretto per MarkdownV2.
+    """
+    Helper to format and send import status - WITH AUTOMATIC SPLITTING
+    """
     msg = format_import_status(result)
     keyboard = create_import_status_keyboard(result, context)
 
-    sent_message = await message.reply_text(
+    # 🎯 CHECK: Is message too long?
+    if is_message_too_long(msg, parse_mode='MarkdownV2'):
+        logger.warning(f"Import status message is too long ({len(msg)} chars), splitting...")
+
+        # Strategy 1: Try truncating differences
+        if result.get('single_match') and result['single_match'].get('differences'):
+            logger.info("Truncating differences to fit message limit")
+
+            # Limit differences to first 10 instead of 100
+            original_diffs = result['single_match']['differences']
+            result['single_match']['differences'] = original_diffs[:10]
+
+            # Regenerate message
+            msg = format_import_status(result)
+
+            if is_message_too_long(msg, parse_mode='MarkdownV2'):
+                # Still too long? Truncate more
+                logger.warning("Still too long after truncating differences")
+                msg = truncate_message(msg, suffix="\n\n_\\.\\.\\.message truncated_")
+
+        elif result.get('candidates'):
+            logger.info("Truncating candidates to fit message limit")
+
+            # Limit candidates to first 5 instead of 10
+            result['candidates'] = result['candidates'][:5]
+
+            # Regenerate message
+            msg = format_import_status(result)
+
+            if is_message_too_long(msg, parse_mode='MarkdownV2'):
+                logger.warning("Still too long after truncating candidates")
+                msg = truncate_message(msg, suffix="\n\n_\\.\\.\\.message truncated_")
+
+        else:
+            # Generic truncation
+            logger.warning("Truncating message generically")
+            msg = truncate_message(msg, suffix="\n\n_\\.\\.\\.message truncated_")
+
+    # 🎯 SAFE SEND: Use safe_reply instead of direct reply_text
+    sent_messages = await safe_reply(
+        message,
         msg,
         parse_mode='MarkdownV2',
         reply_markup=keyboard,
         disable_web_page_preview=False
     )
 
-    # Save message_id for later cleanup
-    if context:
-        context.user_data['last_status_message_id'] = sent_message.message_id
+    # Save first message ID for later cleanup
+    if context and sent_messages:
+        context.user_data['last_status_message_id'] = sent_messages[0].message_id
 
-    return sent_message.message_id
+        # If multiple messages, save all IDs
+        if len(sent_messages) > 1:
+            context.user_data['status_message_ids'] = [m.message_id for m in sent_messages]
+            logger.info(f"Import status split into {len(sent_messages)} messages")
+
+    return sent_messages[0].message_id if sent_messages else None
 
 
 async def cleanup_old_status_message(context, chat_id, label_key='completed_label'):
-    """Removes keyboard and adds history label to the previous message"""
-    #return
-    if 'last_status_message_id' not in context.user_data:
-        return
-
-    try:
-        old_msg_id = context.user_data['last_status_message_id']
-
+    """
+    Removes keyboard and adds history label to the previous message(s)
+    NOW HANDLES MULTIPLE MESSAGES
+    """
+    # Handle single message (backward compatibility)
+    if 'last_status_message_id' in context.user_data:
         try:
-            # Remove the keyboard from the previous message
-            await context.bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=old_msg_id,
-                reply_markup=None
-            )
+            old_msg_id = context.user_data['last_status_message_id']
 
-            logger.debug(f"Keyboard removed from message {old_msg_id}")
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=old_msg_id,
+                    reply_markup=None
+                )
+                logger.debug(f"Keyboard removed from message {old_msg_id}")
+            except Exception as e:
+                logger.debug(f"Could not modify previous message: {e}")
 
         except Exception as e:
-            logger.debug(f"Could not modify previous message: {e}")
+            logger.debug(f"Error during previous message cleanup: {e}")
 
-    except Exception as e:
-        logger.debug(f"Error during previous message cleanup: {e}")
+        del context.user_data['last_status_message_id']
 
-    # Clear the reference
-    del context.user_data['last_status_message_id']
+    # Handle multiple messages (from splitting)
+    if 'status_message_ids' in context.user_data:
+        for msg_id in context.user_data['status_message_ids']:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=msg_id,
+                    reply_markup=None
+                )
+                logger.debug(f"Keyboard removed from split message {msg_id}")
+            except Exception as e:
+                logger.debug(f"Could not modify split message {msg_id}: {e}")
+
+        del context.user_data['status_message_ids']
 
 
 async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Executes a predefined custom command and sends the output to the user."""
+    """
+    Executes a predefined custom command and sends the output to the user.
+    NOW WITH SAFE MESSAGE SENDING
+    """
     if not check_allowed_user(update, context):
         await update.message.reply_text(t('status.access_denied'))
         return
 
-    # The command is already formatted as /<cmd_name> (e.g., /check)
     command_name = update.message.text.split()[0].replace('/', '')
 
-    # --- 1. SEARCH COMMAND AND PREPARE beet_command_str ---
+    # Find command
     beet_command_str = None
     for item in CUSTOM_COMMANDS:
         if item['cmd'] == command_name:
@@ -265,42 +481,31 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
             break
 
     if not beet_command_str:
-        # Nessun parse_mode, nessun escape necessario
         await update.message.reply_text(
-            t('commands.custom_not_found', command_name=command_name) # Message when custom command is not found
+            t('commands.custom_not_found', command_name=command_name)
         )
         return
 
-    # --- 2. BUILD ACTION (Argument List) ---
+    # Build command
     if BEET_CONTAINER:
-        # Execution via Docker
         action = ['docker', 'exec']
-
         if BEET_USER:
             action.extend(['-u', BEET_USER])
-
-        # Add container name and Beet command
         action.append(BEET_CONTAINER)
         action.extend(beet_command_str.split())
-
         display_action = beet_command_str
     else:
-        # Direct execution
         action = beet_command_str.split()
         display_action = beet_command_str
 
-    # --- 3. EXECUTION AND ERROR HANDLING ---
-
-    # --- ESCAPE AGGIUNTO ---
-    # Il comando (display_action) viene mostrato all'utente e necessita di escape
     display_action_escaped = escape_markdown(display_action, version=2)
 
-    # Send temporary message and save the reference
     executing_msg = await update.message.reply_text(
-        t('commands.executing_custom', display_action=display_action_escaped), # Message for command execution start
+        t('commands.executing_custom', display_action=display_action_escaped),
         parse_mode='MarkdownV2'
     )
-    timeout = 300
+
+    timeout = 600
     try:
         result = subprocess.run(
             action,
@@ -309,44 +514,34 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
             timeout=timeout
         )
 
-        # Initialize final output with success status
-        output = t('commands.executed_header', display_action=display_action_escaped) # Message for command executed (header)
+        # Build output
+        output = t('commands.executed_header', display_action=display_action_escaped)
 
-        # Add stderr (Error Output, even if command exits with code 0)
         if result.stderr:
-            # --- ESCAPE AGGIUNTO ---
-            # stderr è output raw e va escapato
             stderr_preview = result.stderr[:500]
             stderr_escaped = escape_markdown(stderr_preview, version=2)
-
             if len(result.stderr) > 500:
-                # Anche il testo 'truncated' deve essere escapato se contiene markdown
-                stderr_escaped += escape_markdown(t('commands.truncated'), version=2) # Message for truncation
+                stderr_escaped += escape_markdown(t('commands.truncated'), version=2)
+            output += t('commands.error_stderr', stderr_preview=stderr_escaped)
 
-            output += t('commands.error_stderr', stderr_preview=stderr_escaped) # Message for stderr
-
-        # Add stdout (The actual command result)
         if result.stdout:
-            # L'output dentro un blocco ``` non necessita di escape
             msg_body = f"```\n{result.stdout}\n```"
             msg_body_escaped = escape_markdown(msg_body, version=2)
         else:
-            msg_body = t('commands.empty_output') # Message for empty output
+            msg_body = t('commands.empty_output')
 
-        # Combine header with body
         final_message = output + msg_body
 
-        # ✅ LONG MESSAGE HANDLING
-        MAX_LENGTH = 4000  # Telegram limit is 4096. Using 4000 for safety.
+        # 🎯 CHECK LENGTH
+        MAX_LENGTH = 4000
 
         if len(final_message) > MAX_LENGTH:
-            # Message too long, send header and output as a text file
+            # Too long - send as file
             await update.message.reply_text(
-                t('commands.output_too_long', display_action=display_action_escaped), # Message for output too long
+                t('commands.output_too_long', display_action=display_action_escaped),
                 parse_mode='MarkdownV2'
             )
 
-            # Create unique temporary file name
             with tempfile.NamedTemporaryFile(
                 mode='w',
                 suffix='.txt',
@@ -354,7 +549,7 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
                 encoding='utf-8'
             ) as f:
                 temp_filename = f.name
-                f.write(f"Command: {display_action}\n") # display_action raw nel file di testo
+                f.write(f"Command: {display_action}\n")
                 f.write("=" * 50 + "\n\n")
                 if result.stderr:
                     f.write("STDERR:\n")
@@ -363,26 +558,23 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
                 f.write("STDOUT:\n")
                 f.write(result.stdout)
 
-            # Send result as a text file
             with open(temp_filename, "rb") as f:
                 await update.message.reply_document(
                     document=f,
                     filename=f"{command_name}_output.txt",
-                    # Nessun parse_mode per la caption, nessun escape
-                    caption=t('commands.file_caption', display_action=display_action) # Caption for the output file
+                    caption=t('commands.file_caption', display_action=display_action)
                 )
 
-            # Clean up temporary file
             try:
                 os.remove(temp_filename)
             except Exception as e:
                 logger.error(f"Could not delete temporary output file: {e}")
 
         else:
-            # Short message, send normally
-            await update.message.reply_text(final_message, parse_mode='MarkdownV2')
+            # 🎯 SAFE SEND: Use safe_reply for potentially long messages
+            await safe_reply(update.message, final_message, parse_mode='MarkdownV2')
 
-        # ✅ DELETE the "Executing..." message
+        # Delete "Executing..." message
         try:
             await executing_msg.delete()
             logger.debug(f"Command execution message {executing_msg.message_id} deleted")
@@ -391,24 +583,21 @@ async def execute_custom_command(update: Update, context: ContextTypes.DEFAULT_T
 
     except subprocess.TimeoutExpired:
         await update.message.reply_text(
-            t('commands.exec_timeout', display_action=display_action,seconds=timeout), # Message for command timeout
+            t('commands.exec_timeout', display_action=display_action, seconds=timeout),
             parse_mode='MarkdownV2'
         )
-        # Delete "Executing..." message
         try:
             await executing_msg.delete()
         except:
             pass
 
     except Exception as e:
-        # (ma l'errore 'e' viene comunque passato)
         logger.error(f"Error executing custom command {display_action}: {e}")
         e_escaped = escape_markdown(str(e), version=2)
         await update.message.reply_text(
-            t('commands.exec_unexpected_error', error=e_escaped), # Message for unexpected error
+            t('commands.exec_unexpected_error', error=e_escaped),
             parse_mode='MarkdownV2'
         )
-        # Delete "Executing..." message
         try:
             await executing_msg.delete()
         except:

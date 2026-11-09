@@ -54,17 +54,24 @@ class BeetImportManager:
     # DIRECTORY OPERATIONS
     # ======================================================
     def get_import_directories(self):
-        """Return a sorted list of directories under the import folder"""
+        """
+        Return a sorted list of importable albums under the import folder.
+        
+        Uses recursive scanning to find all albums, including nested ones.
+        Albums are sorted by modification time (newest first).
+        """
         import_path = Path(IMPORT_PATH)
         if not import_path.exists():
             return []
 
-        dirs = [
-            d for d in import_path.iterdir()
-            if d.is_dir() and d.name not in ["skipped", ".", ".."]
-        ]
-        dirs.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        return dirs
+        # 🆕 Use recursive album finder
+        from core.directory_analyzer import find_importable_albums
+        
+        albums = find_importable_albums(import_path)
+        
+        logger.debug(f"Found {len(albums)} importable albums in {IMPORT_PATH}")
+        
+        return albums
 
     def _validate_path(self, path):
         """Ensure the path is inside the import root"""
@@ -97,7 +104,7 @@ class BeetImportManager:
             cmd = beet_args
         return cmd
 
-    def _run_command(self, beet_args, input_data=None, timeout=300, interactive=False):
+    def _run_command(self, beet_args, input_data=None, timeout=600, interactive=False):
         """Execute beet command and return subprocess result"""
         cmd = self._build_command(beet_args, interactive)
         try:
@@ -155,7 +162,7 @@ class BeetImportManager:
     def search_candidates(self, path):
         """Search for candidate matches without importing"""
         beet_path = self.translate_path_for_beet(path)
-        result = self._run_command(["beet", "ls", "-a", f"path:{beet_path}"], timeout=300)
+        result = self._run_command(["beet", "ls", "-a", f"path:{beet_path}"], timeout=600)
         if not result:
             return {"status": "error", "message": "Search failed", "path": path}
 
@@ -175,7 +182,7 @@ class BeetImportManager:
             pretend = "--pretend"
         else:
             pretend = "-t"
-        result = self._run_command(["beet", "-vv", "import", pretend, beet_path], timeout=300)
+        result = self._run_command(["beet", "-vv", "import", pretend, beet_path], timeout=600)
 
         if not result:
             parsed = {
@@ -233,7 +240,7 @@ class BeetImportManager:
         result = self._run_command(
             beet_args,
             input_data=stdin_input,
-            timeout=300,
+            timeout=600,
             interactive=True
         )
 

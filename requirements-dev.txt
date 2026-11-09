@@ -1,0 +1,32 @@
+ 
+# Development dependencies for testing and linting
+
+# Testing framework
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-asyncio==0.23.2
+pytest-timeout==2.2.0
+
+# Coverage reporting
+coverage[toml]==7.3.3
+
+# Mocking
+responses==0.24.1
+
+# Code quality
+black==23.12.1
+flake8==7.0.0
+pylint==3.0.3
+mypy==1.7.1
+isort==5.13.2
+
+# Type stubs
+types-requests==2.31.0.10
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+
+# Utilities
+pyyaml==6.0.1

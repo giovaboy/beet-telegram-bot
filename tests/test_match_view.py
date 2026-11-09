@@ -110,6 +110,8 @@ def _track(old_title="A", new_title="A", old_len="3:00", new_len="3:00", old_ind
     (_track('Sonata No. 9 "Kreutzer"', 'Sonata no. 9 “Kreutzer”'), ['minor']),
     (_track('Prelude - Fugue', 'Prélude – Fugue'), ['minor']),
     (_track('Tzigane, M. 76', 'Tzigane'), ['title']),
+    (_track('I. Allegro ma non troppo', 'I. Allegro, ma non troppo'), ['minor']),
+    (_track('Concerto (Live)', 'Concerto'), ['title']),
     (_track(old_len='3:00', new_len='3:09'), []),           # below beet's 10 s threshold
     (_track(old_len='3:00', new_len='3:10'), ['length']),
     (_track(old_index='1', new_index='2'), ['index']),
@@ -219,3 +221,37 @@ def test_preview_uses_detailed_view():
     assert text.startswith('🔎 *Import preview*')
     assert 'Missing from your files: 2/8' in text and 'View on MusicBrainz' in text
     assert markdown_v2_errors(text) == [] and len(text) < 4000
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Real output from the server (beet >= 2.13, run by the bot)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@pytest.fixture
+def real():
+    return parse_beet_output(_fixture("single_match_mb_real_ferras.txt"), "", "/downloads/Christian Ferras")
+
+
+def test_real_output_is_parsed_completely(real):
+    details = real['single_match']['details']
+    assert real['status'] == 'single_match' and details['similarity'] == 76.3
+    assert details['wrapped'] is False and details['missing'] is None
+    assert [t['medium'] for t in details['tracks']].count('CD 4') == 5
+    assert len(details['tracks']) == 29
+    kinds = {t['new_index']: t['kinds'] for t in details['tracks']}
+    assert kinds['19'] == ['minor']   # only a comma added
+    assert kinds['7'] == ['title']    # "M. 76" removed
+    assert kinds['8'] == ['title']    # "(Spring)" added
+
+
+def test_every_retitled_track_has_a_visible_change(real):
+    for track in real['single_match']['details']['tracks']:
+        diff = inline_diff(track['old_title'], track['new_title'])
+        highlighted = '~' in diff or '*' in diff
+        assert highlighted == ('title' in track['kinds']), (track['new_index'], diff)
+
+
+def test_real_status_message(real):
+    msg = format_import_status(real)
+    assert markdown_v2_errors(msg) == [] and len(msg) < 4000
+    assert '📝 20 retitled · ✏️ 9 case/punctuation only' in msg

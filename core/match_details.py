@@ -75,15 +75,27 @@ def normalize_title(title: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
+def word_key(word: str) -> str:
+    """A word reduced to letters/digits: 'Op.' ≈ 'op', '“Kreutzer”:' ≈ 'kreutzer', '–' → ''."""
+    return re.sub(r'\W', '', normalize_title(word))
+
+
+def title_words(title: str) -> List[str]:
+    """The words of a title, ignoring case, accents and punctuation."""
+    return [key for key in (word_key(w) for w in (title or '').split()) if key]
+
+
 def classify_track(track: Dict[str, Any]) -> List[str]:
     """
     Kinds of change of one track line (a line can have several):
     'title' (real wording change), 'minor' (case/punctuation/quotes only),
     'length' (≥ LENGTH_DIFF_THRESHOLD seconds), 'index' (track number).
+    Uses the same word comparison as the diff shown to the user, so a
+    'title' change always has something highlighted.
     """
     kinds = []
     if track['old_title'] != track['new_title']:
-        same = normalize_title(track['old_title']) == normalize_title(track['new_title'])
+        same = title_words(track['old_title']) == title_words(track['new_title'])
         kinds.append('minor' if same else 'title')
     old_len, new_len = length_seconds(track['old_length']), length_seconds(track['new_length'])
     if old_len is not None and new_len is not None and abs(old_len - new_len) >= LENGTH_DIFF_THRESHOLD:

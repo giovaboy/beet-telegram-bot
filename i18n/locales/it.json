@@ -224,7 +224,7 @@
         "nothing_to_confirm": "Niente da confermare"
     },
     "match": {
-        "header": "🎯 *Match {similarity}%* · {source}",
+        "header": "📊 *Match {similarity}%* · {source}",
         "differs_in": "⚖️ Differenze in: _{fields}_",
         "wrapped_warning": "ℹ️ _Questa versione di beet va a capo sulle righe lunghe, quindi alcuni titoli possono essere tagliati\\. Aggiorna beet alla 2\\.6 o successive per vederli interi\\._",
         "album_tags": "*Tag album* \\(attuale → nuovo\\)",

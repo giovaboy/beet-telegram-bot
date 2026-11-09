@@ -9,13 +9,12 @@ Layout:
     Tracks: counters, missing / unmatched lists (always visible),
     then every changed track inside an expandable block quote.
 """
-import re
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional
 
 from telegram.helpers import escape_markdown
 
-from core.match_details import normalize_title
+from core.match_details import word_key
 from i18n.translations import t
 
 # Room for the match body inside one Telegram message (the caller adds a
@@ -42,8 +41,7 @@ def shorten(text: str, limit: int) -> str:
 
 def _word_key(word: str) -> str:
     """Words equal up to case, accents, quotes and punctuation compare equal."""
-    key = re.sub(r'\W', '', normalize_title(word))
-    return key or '·'  # punctuation-only tokens ("-", "–") are all alike
+    return word_key(word) or '·'  # punctuation-only tokens ("-", "–") are all alike
 
 
 def inline_diff(old: str, new: str, context: int = CONTEXT_WORDS) -> str:

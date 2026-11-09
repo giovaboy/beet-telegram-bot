@@ -1,0 +1,53 @@
+# Test Case: Real single match, 4xCD classical box set, every track differs
+# Album: The SWR Recordings
+# Artist: Christian Ferras
+# Source: MusicBrainz
+# Expected Status: single_match
+# Expected Similarity: 70-80
+# Notes: Real stdout of beet (>= 2.13) run by the bot with NO_COLOR=1 COLUMNS=2000 on 2026-11-09 (line breaks restored from the bot log). Mostly case/punctuation changes (Major/major, Op./op.) plus added subtitles ("(Spring)") and removed catalogue numbers ("TH 59", "M. 76").
+# ---
+
+/downloads/Christian Ferras - Beethoven, Tchaikovsky & Others - Violin Sonatas & Concertos (2022) [24-48] (29 items)
+
+  Match (76.3%):
+  Christian Ferras - The SWR Recordings
+  ≠ artist, album, tracks, data source
+  MusicBrainz, 4xCD, 2022, None, SWR Classic, None, None
+  https://musicbrainz.org/release/10e48a26-dee1-4438-a9de-427a63a38e34
+  ≠ Artist: Christian Ferras, Pierre Barbizet, Stuttgart Radio Symphony Orchestra, SWR Sinfonieorchester Baden-Baden und Freiburg -> Christian Ferras
+  ≠ Album: Beethoven, Tchaikovsky & Others: Violin Sonatas & Concertos -> The SWR Recordings
+  * CD 1
+     ≠ (#1) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": I. Adagio sostenuto (11:36) -> (#1) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: I. Adagio sostenuto – Presto (11:36)
+     ≠ (#2) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": II. Andante con variazioni (13:11) -> (#2) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: II. Andante con variazioni (13:11)
+     ≠ (#3) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": III. Finale (7:11) -> (#3) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: III. Finale. Presto (7:11)
+     ≠ (#4) Violin Sonata in G Minor, L. 140: I. Allegro vivo (4:35) -> (#4) Violin Sonata: I. Allegro vivo (4:35)
+     ≠ (#5) Violin Sonata in G Minor, L. 140: II. Intermède. Fantasque et léger (4:13) -> (#5) Violin Sonata: II. Intermède. Fantasque et léger (4:13)
+     ≠ (#6) Violin Sonata in G Minor, L. 140: III. Finale. Très animé (3:58) -> (#6) Violin Sonata: III. Finale. Très animé (3:58)
+     ≠ (#7) Tzigane, M. 76 (9:42) -> (#7) Tzigane (9:43)
+  * CD 2
+     ≠ (#8) Violin Sonata No. 5 in F Major, Op. 24: I. Allegro (7:16) -> (#8) Violin Sonata No. 5 in F major, Op. 24 (Spring): I. Allegro (7:16)
+     ≠ (#9) Violin Sonata No. 5 in F Major, Op. 24: II. Adagio molto espressivo (6:02) -> (#9) Violin Sonata No. 5 in F major, Op. 24 (Spring): II. Adagio molto espressivo (6:02)
+     ≠ (#10) Violin Sonata No. 5 in F Major, Op. 24: III. Scherzo. Allegro molto (1:10) -> (#10) Violin Sonata No. 5 in F major, Op. 24 (Spring): III. Scherzo. Allegro molto (1:10)
+     ≠ (#11) Violin Sonata No. 5 in F Major, Op. 24: IV. Rondo. Allegro ma non troppo (6:22) -> (#11) Violin Sonata No. 5 in F major, Op. 24 (Spring): IV. Rondo. Allegro ma non troppo (6:22)
+     ≠ (#12) Violin Sonata No. 3 in A Minor, Op. 25: I. Moderato malinconico (6:51) -> (#12) Violin Sonata No. 3 in A minor, Op. 25 “dans le caractère populaire roumain”: I. Moderato malinconico (6:51)
+     ≠ (#13) Violin Sonata No. 3 in A Minor, Op. 25: II. Andante sostenuto e misterioso (6:48) -> (#13) Violin Sonata No. 3 in A minor, Op. 25 “dans le caractère populaire roumain”: II. Andante sostenuto e misterioso (6:48)
+     ≠ (#14) Violin Sonata No. 3 in A Minor, Op. 25: III. Allegro con brio, ma non troppo mosso (6:54) -> (#14) Violin Sonata No. 3 in A minor, Op. 25 “dans le caractère populaire roumain”: III. Allegro con brio, ma non troppo mosso (6:54)
+     ≠ (#15) Violin Sonata No. 2 in D Minor, Op. 121: I. Ziemlich langsam (10:26) -> (#15) Violin Sonata No. 2 in D minor, Op. 121: I. Ziemlich langsam – Lebhaft (10:26)
+     ≠ (#16) Violin Sonata No. 2 in D Minor, Op. 121: II. Sehr lebhaft (4:02) -> (#16) Violin Sonata No. 2 in D minor, Op. 121: II. Sehr lebhaft (4:02)
+     ≠ (#17) Violin Sonata No. 2 in D Minor, Op. 121: III. Leise, einfach (6:49) -> (#17) Violin Sonata No. 2 in D minor, Op. 121: III. Leise, einfach (6:49)
+     ≠ (#18) Violin Sonata No. 2 in D Minor, Op. 121: IV. Bewegt (6:23) -> (#18) Violin Sonata No. 2 in D minor, Op. 121: IV. Bewegt (6:24)
+  * CD 3
+     ≠ (#19) Violin Concerto in D Major, Op. 61: I. Allegro ma non troppo (24:13) -> (#19) Violin Concerto in D major, op. 61: I. Allegro, ma non troppo (24:13)
+     ≠ (#20) Violin Concerto in D Major, Op. 61: II. Larghetto (9:21) -> (#20) Violin Concerto in D major, op. 61: II. Larghetto (9:21)
+     ≠ (#21) Violin Concerto in D Major, Op. 61: III. Rondo. Allegro (10:27) -> (#21) Violin Concerto in D major, op. 61: III. Rondo. Allegro (10:27)
+     ≠ (#22) Violin Concerto in D Major, Op. 35, TH 59: I. Allegro moderato (17:55) -> (#22) Violin Concerto in D major, op. 35: I. Allegro moderato (17:55)
+     ≠ (#23) Violin Concerto in D Major, Op. 35, TH 59: II. Canzonetta. Andante (6:34) -> (#23) Violin Concerto in D major, op. 35: II. Canzonetta. Andante (6:34)
+     ≠ (#24) Violin Concerto in D Major, Op. 35, TH 59: III. Finale. Allegro vivacissimo (8:53) -> (#24) Violin Concerto in D major, op. 35: III. Finale. Allegro vivacissimo (8:53)
+  * CD 4
+     ≠ (#25) Violin Concerto in D Major, Op. 77: I. Allegro non troppo (22:15) -> (#25) Violin Concerto in D major, Op. 77: I. Allegro non troppo (22:15)
+     ≠ (#26) Violin Concerto in D Major, Op. 77: II. Adagio (10:21) -> (#26) Violin Concerto in D major, Op. 77: II. Adagio (10:21)
+     ≠ (#27) Violin Concerto in D Major, Op. 77: III. Allegro giocoso, ma non troppo vivace (8:20) -> (#27) Violin Concerto in D major, Op. 77: III. Allegro giocoso, ma non troppo vivace (8:19)
+     ≠ (#28) Violin Concerto "To the Memory of an Angel": I. Andante (Live) (10:16) -> (#28) Violin Concerto “to the Memory of an Angel”: I. Andante – Allegretto (10:16)
+     ≠ (#29) Violin Concerto "To the Memory of an Angel": II. Allegro (Live) (13:50) -> (#29) Violin Concerto “to the Memory of an Angel”: II. Allegro – Adagio (13:50)
+➜ [A]pply, More candidates, Skip, Use as-is, as Tracks, Group albums,
+Rescan directory, Enter search, enter Id, aBort, eDit, edit Candidates?

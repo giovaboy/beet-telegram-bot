@@ -13,6 +13,13 @@ from core.parsers import clean_ansi_codes
 
 logger = setup_logging()
 
+# Environment for every beet run. beet only prints a change on ONE line
+# ("current -> new") when it fits the terminal width; otherwise it wraps it
+# over two columns, which cannot be parsed back. Without a terminal beet
+# assumes 80 columns, so we pass a large width (honoured by beet >= 2.6) and
+# disable colors (color codes also break words apart when lines are wrapped).
+BEET_ENV = {"NO_COLOR": "1", "COLUMNS": "2000"}
+
 
 class BeetImportManager:
     def __init__(self):
@@ -107,6 +114,8 @@ class BeetImportManager:
                 cmd.append("-i")
             if BEET_USER:
                 cmd.extend(["-u", BEET_USER])
+            for name, value in BEET_ENV.items():
+                cmd.extend(["-e", f"{name}={value}"])
             cmd.extend([BEET_CONTAINER] + beet_args)
         else:
             cmd = beet_args
@@ -122,6 +131,7 @@ class BeetImportManager:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env={**os.environ, **BEET_ENV},  # used when beet runs locally
             )
             self._log_result(cmd, result)
             return result
@@ -160,9 +170,9 @@ class BeetImportManager:
             return
         logger.debug(f"[RETURN] {result.returncode}")
         if result.stdout:
-            logger.debug(result.stdout[:2000])
+            logger.debug(result.stdout[:8000])
         if result.stderr:
-            logger.warning(result.stderr[:2000])
+            logger.warning(result.stderr[:8000])
 
     # ======================================================
     # SEARCH & IMPORT OPERATIONS

@@ -30,6 +30,7 @@ from ui.keyboards import (
     create_back_keyboard,
     create_import_status_keyboard,
 )
+from ui.match_view import format_match_body
 from ui.messages import format_directory_details, format_file_list, format_import_status, get_file_icon
 
 logger = setup_logging()
@@ -462,7 +463,14 @@ def _source_name(id_type: str) -> str:
 
 def preview_text(result: dict, id_type: str) -> str:
     preview = result.get("preview", {}).get("single_match") or {}
+    url = preview.get("mb_url") if id_type == 'mb' else preview.get("discogs_url")
+    link = f"\n{t('fields.link', source=_source_name(id_type), url=url)}\n" if url else ''
 
+    body = format_match_body(preview)
+    if body:
+        return f"🔎 *{t('status.preview')}*\n\n{body}\n{link}"
+
+    # Legacy rendering, used when beet's output could not be parsed in detail
     def field(key):
         value = preview.get(key)
         return esc('?' if value is None else value)
@@ -480,11 +488,7 @@ def preview_text(result: dict, id_type: str) -> str:
             msg += format_difference_with_diff(diff, style=DIFF_STYLE) + "\n"
         if len(differences) > MAX_PREVIEW_DIFFERENCES:
             msg += f"\n{t('fields.more_diff', remaining=len(differences) - MAX_PREVIEW_DIFFERENCES)}\n"
-
-    url = preview.get("mb_url") if id_type == 'mb' else preview.get("discogs_url")
-    if url:
-        msg += f"\n{t('fields.link', source=_source_name(id_type), url=url)}\n"
-    return msg
+    return msg + link
 
 
 async def run_preview(context, chat_id, manager, id_value: str, id_type: str, *,

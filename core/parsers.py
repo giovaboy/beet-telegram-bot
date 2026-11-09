@@ -23,6 +23,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from difflib import SequenceMatcher
 from telegram.helpers import escape_markdown
 from config import setup_logging, BEET_DEBUG_MODE
+from core.match_details import parse_match_details
 
 logger = setup_logging()
 
@@ -164,7 +165,7 @@ def char_diff(old: str, new: str) -> Tuple[str, str]:
 
     if not old or not new:
         return (
-            f"~~{escape_md(old or '')}~~" if old else "",
+            f"~{escape_md(old or '')}~" if old else "",
             f"__*{escape_md(new or '')}*__" if new else ""
         )
 
@@ -184,12 +185,12 @@ def char_diff(old: str, new: str) -> Tuple[str, str]:
 
         elif tag == 'replace':
             # Changed text: strikethrough old, underline+bold new
-            old_parts.append(f"~~{escape_md(old_chunk)}~~")
+            old_parts.append(f"~{escape_md(old_chunk)}~")
             new_parts.append(f"__*{escape_md(new_chunk)}*__")
 
         elif tag == 'delete':
             # Deleted text: strikethrough
-            old_parts.append(f"~~{escape_md(old_chunk)}~~")
+            old_parts.append(f"~{escape_md(old_chunk)}~")
 
         elif tag == 'insert':
             # Inserted text: underline+bold
@@ -222,7 +223,7 @@ def word_diff(old: str, new: str) -> Tuple[str, str]:
     """
     if not old or not new:
         return (
-            f"~~{escape_md(old or '')}~~" if old else "",
+            f"~{escape_md(old or '')}~" if old else "",
             f"__*{escape_md(new or '')}*__" if new else ""
         )
 
@@ -243,11 +244,11 @@ def word_diff(old: str, new: str) -> Tuple[str, str]:
             new_parts.extend([escape_md(w) for w in new_chunk])
 
         elif tag == 'replace':
-            old_parts.extend([f"~~{escape_md(w)}~~" for w in old_chunk])
+            old_parts.extend([f"~{escape_md(w)}~" for w in old_chunk])
             new_parts.extend([f"__*{escape_md(w)}*__" for w in new_chunk])
 
         elif tag == 'delete':
-            old_parts.extend([f"~~{escape_md(w)}~~" for w in old_chunk])
+            old_parts.extend([f"~{escape_md(w)}~" for w in old_chunk])
 
         elif tag == 'insert':
             new_parts.extend([f"__*{escape_md(w)}*__" for w in new_chunk])
@@ -1137,6 +1138,8 @@ def parse_beet_output(stdout: str, stderr: str, path: str) -> Dict[str, Any]:
             'source': info.get('source'),
             'similarity': info.get('similarity'),
             'differences': info.get('differences', []),
+            # Structured view of the same block (album/track changes, missing tracks...)
+            'details': parse_match_details(cleaned_raw),
             'info_short': f"{info.get('artist') or 'Unknown'} - {info.get('album') or 'Unknown'}",
             'raw_output': cleaned_raw  # 🎯 Cleaned output
         }

@@ -222,5 +222,21 @@
         "candidates_changed": "La lista dei candidati è cambiata, riseleziona",
         "preview_expired": "⏳ Anteprima scaduta, riseleziona la release",
         "nothing_to_confirm": "Niente da confermare"
+    },
+    "match": {
+        "header": "🎯 *Match {similarity}%* · {source}",
+        "differs_in": "⚖️ Differenze in: _{fields}_",
+        "wrapped_warning": "ℹ️ _Questa versione di beet va a capo sulle righe lunghe, quindi alcuni titoli possono essere tagliati\\. Aggiorna beet alla 2\\.6 o successive per vederli interi\\._",
+        "album_tags": "*Tag album* \\(attuale → nuovo\\)",
+        "tracks_header": "*Tracce* · {count} cambiate",
+        "tracks_ok": "✅ Tutte le tracce corrispondono",
+        "chip_title": "📝 {count} titoli diversi",
+        "chip_minor": "✏️ {count} solo maiuscole/punteggiatura",
+        "chip_length": "⏱️ {count} durata diversa",
+        "chip_index": "🔢 {count} rinumerate",
+        "missing": "❌ *Mancano nei tuoi file: {count}/{total}* \\({percent}%\\)",
+        "unmatched": "➕ *File locali senza corrispondenza: {count}*",
+        "more": "…e altre {count}",
+        "minor_hidden": "✏️ altre {count} con differenze solo di maiuscole/punteggiatura"
     }
 }

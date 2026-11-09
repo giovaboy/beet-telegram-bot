@@ -1,0 +1,32 @@
+# Test Case: Single match with album, track, missing and unmatched differences
+# Album: The SWR Recordings
+# Artist: Christian Ferras
+# Source: MusicBrainz
+# Expected Status: single_match
+# Expected Similarity: <80
+# Notes: Rendered by beets 2.14.1 display code with NO_COLOR=1 COLUMNS=2000 (how the bot now runs beet): one line per change
+# ---
+
+/downloads/Christian Ferras - Beethoven, Tchaikovsky & Others - Violin Sonatas & Concertos (2022) [24-48] (7 items)
+
+  Match (32.0%):
+  Christian Ferras - The SWR Recordings
+  ≠ artist, album, tracks, data source
+  MusicBrainz, 2xCD, 2022, None, SWR Classic, None, None
+  https://musicbrainz.org/release/10e48a26-dee1-4438-a9de-427a63a38e34
+  ≠ Artist: Christian Ferras, Pierre Barbizet, Stuttgart Radio Symphony Orchestra -> Christian Ferras
+  ≠ Album: Beethoven, Tchaikovsky & Others: Violin Sonatas & Concertos -> The SWR Recordings
+  * CD 1
+     ≠ (#1) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": I. Adagio sostenuto - Presto (11:36) -> (#1) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: I. Adagio sostenuto – Presto (11:36)
+     ≠ (#2) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": II. Andante con variazioni (13:11) -> (#2) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: II. Andante con variazioni (13:11)
+     ≠ (#3) Violin Sonata No. 9 in A Major, Op. 47 "Kreutzer": III. Finale. Presto (7:11) -> (#3) Violin Sonata no. 9 in A, op. 47 “Kreutzer”: III. Finale. Presto (7:11)
+     ≠ (#4) Violin Sonata in G Minor, L. 140: I. Allegro vivo (4:35) -> (#4) Violin Sonata: I. Allegro vivo (4:35)
+  * CD 2
+     ≠ (#5) Tzigane, M. 76 (9:42) -> (#5) Tzigane (9:43)
+     ≠ (#6) Violin Concerto in D Major, Op. 35: I. Allegro moderato (19:13) -> (#6) Violin Concerto in D, op. 35: I. Allegro moderato (19:50)
+Missing tracks (2/8 - 25.0%):
+ ! Violin Concerto in D, op. 35: II. Canzonetta. Andante (#7) (6:41)
+ ! Violin Concerto in D, op. 35: III. Finale. Allegro vivacissimo (#8) (10:05)
+Unmatched tracks (1):
+ ! Bonus: Interview with Christian Ferras (#7) (5:12)
+Apply, More candidates, Skip, Use as-is, as Tracks, Group albums, Enter search, enter Id, aBort, eDit, edit Candidates? 

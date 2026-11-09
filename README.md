@@ -367,33 +367,39 @@ Directory name `Pink_Floyd-The_Wall_(1979)_[FLAC]` becomes:
 
 ### 📊 Import Previews
 
-**Difference Highlighting:**
-
-The bot shows character-level diffs using smart formatting:
+**What the preview shows** (for the proposed release, before you confirm):
 
 ```
-Original: The Wall (Remastered)
-Match:    The Wall — Remaster
+🎯 Match 76.3% · MusicBrainz
+🎤 Christian Ferras
+💿 The SWR Recordings
+📀 4xCD · 2022 · SWR Classic
+⚖️ Differs in: artist, album, tracks, data source
 
-Shown as:
-• 🔄 album: The Wall ~~(Remastered)~~ → __*— Remaster*__
+Album tags (current → new)
+💿 ~Beethoven, Tchaikovsky & Others…~ → The SWR Recordings
+
+Tracks · 27 changed
+📝 9 retitled · ✏️ 18 case/punctuation only · ⏱️ 1 different length
+❌ Missing from your files: 2/31 (6.5%)
+  • #30 Violin Concerto in D, op. 35: II. Canzonetta (6:41)
+▸ (tap to expand)
+  💿 CD 1
+  📝 #1 Violin Sonata no. 9 in A, ~Major,~ op. 47 “Kreutzer”: I. Adagio…
+  ✏️ #2 …
 ```
 
-**Diff Styles:**
+- Differences that are only case, quotes, dashes or accents are counted
+  separately (✏️) and never highlighted, so real changes stand out.
+- Missing tracks and local files without a match are always listed.
+- The per-track list is an expandable quote; on very large releases the
+  case/punctuation-only lines are left out first, then the list is cut.
+- beet is run with `NO_COLOR=1` and a wide `COLUMNS`, so every change
+  arrives on one line with complete titles. This needs **beet 2.6 or later**;
+  with older versions titles may be cut and the bot says so.
 
-Configure via `DIFF_STYLE` environment variable:
-
-- `char` - Character-by-character (best for small changes)
-- `word` - Word-by-word (better readability)
-- `smart` - Automatic choice based on length (recommended)
-- `simple` - Just show new value
-
-**Preview Information:**
-- Artist, Album, Year, Label, Catalog Number
-- Similarity percentage
-- List of differences (first 15 shown)
-- Track changes with time codes
-- Direct link to MusicBrainz/Discogs release
+`DIFF_STYLE` (`char` | `word` | `smart` | `simple`) only applies to the
+fallback view used when beet's output can't be parsed in detail.
 
 ### 🌍 Internationalization
 
@@ -504,18 +510,10 @@ All imports run with `--pretend` flag. Will break bot UI flow. Great for:
 
 ### Custom Diff Highlighting
 
+`DIFF_STYLE` only affects the fallback view (see *Import Previews*):
+
 ```env
-# Character-level (shows every char difference)
-DIFF_STYLE=char
-
-# Word-level (cleaner for long text)
-DIFF_STYLE=word
-
-# Smart choice based on length (recommended)
-DIFF_STYLE=smart
-
-# Simple (just underline new text)
-DIFF_STYLE=simple
+DIFF_STYLE=smart   # char | word | smart | simple
 ```
 
 ### Network Configuration

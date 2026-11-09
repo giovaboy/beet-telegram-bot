@@ -7,6 +7,7 @@ from config import setup_logging, DIFF_STYLE
 from i18n.translations import t
 from telegram.helpers import escape_markdown
 from core.plugin_detector import has_discogs_plugin
+from ui.match_view import format_match_body
 
 logger = setup_logging()
 
@@ -179,6 +180,16 @@ def get_file_icon(ext: str) -> str:
     return icon_map.get(ext.lower(), '📄')
 
 
+def _match_links(single) -> str:
+    """Links to the matched release (MusicBrainz / Discogs)."""
+    links = ""
+    if single.get('mb_url'):
+        links += "\n" + t('fields.mb_link', url=single['mb_url']) + "\n"
+    if single.get('discogs_url') and has_discogs_plugin():
+        links += "\n" + t('fields.discogs_link', url=single['discogs_url']) + "\n"
+    return links
+
+
 def format_import_status(result):
     """
     Formats the import status message based on unified structure.
@@ -196,12 +207,19 @@ def format_import_status(result):
     }
     emoji = emoji_map.get(result.get('status'), '📌')
 
-    msg = f"{emoji} *{t('status.header')}*\n\n"
+    msg = f"{emoji} {t('status.header')}\n\n"
     msg += t('fields.directory', name=path_name) + "\n\n"
 
     # --- Single Match ---
     single = result.get('single_match')
-    if single:
+    body = format_match_body(single) if single else None
+    if single and body:
+        msg += body + "\n"
+        msg += _match_links(single)
+        msg += "\n" + t('status.ask_confirm') + "\n"
+
+    elif single:
+        # Legacy rendering, used when beet's output could not be parsed in detail
         # Get values with None handling
         raw_similarity = single.get('similarity')
         raw_artist = single.get('artist')
@@ -239,13 +257,7 @@ def format_import_status(result):
                 remaining = total_diffs - MAX_DIFFERENCES_SHOWN
                 msg += f"\n{t('fields.more_diff', remaining=remaining)}\n"
 
-        # Links
-        if single.get('mb_url'):
-            msg += "\n" + t('fields.mb_link', url=single['mb_url']) + "\n"
-
-        if single.get('discogs_url') and has_discogs_plugin():
-            msg += "\n" + t('fields.discogs_link', url=single['discogs_url']) + "\n"
-
+        msg += _match_links(single)
         msg += "\n" + t('status.ask_confirm') + "\n"
 
     # --- Multiple Candidates ---

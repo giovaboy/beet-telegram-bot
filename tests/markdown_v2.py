@@ -40,7 +40,13 @@ def markdown_v2_errors(text):
                 i += 2
                 continue
             errors.append((i, c))
-        elif c == '>' and i > 0 and text[i - 1] != '\n':
+        elif c == '>' and not _at_line_start(text, i):
             errors.append((i, c))
         i += 1
     return errors
+
+
+def _at_line_start(text, i):
+    """'>' starts a block quote at the beginning of a line ('**>' = expandable)."""
+    start = text.rfind('\n', 0, i) + 1
+    return text[start:i] in ('', '**')

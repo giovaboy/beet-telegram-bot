@@ -1,0 +1,123 @@
+# Test Case: Real multiple candidates, MusicBrainz + Discogs, duplicate titles
+# Album: Bach: Violin Concerto BWV 1042 / Tchaikovsky: Violin Concerto Op. 35
+# Artist: Sir John Barbirolli
+# Source: Both
+# Expected Status: has_candidates
+# Expected Similarity: <80
+# Notes: Real output of beet >= 2.13 (bot, NO_COLOR=1 COLUMNS=2000, 2026-11-10). The candidate list (stdout) is complete. The debug section was truncated in the bot log: the "Candidate: ... (id) from ..." lines of candidates 1, 2, 5, 7, 8, 9, 10 are real; those of 3, 4 (two Elgar releases with identical titles), 6 and 11 are reconstructed with SYNTHETIC ids.
+# ---
+
+/downloads/Sir John Barbirolli - Bach- Violin Concerto, BWV 1042 - Tchaikovsky- Violin Concerto, Op. 35 (2021) [24-192] (6 items)
+
+Finding tags for album "Sir John Barbirolli - Bach: Violin Concerto, BWV 1042 - Tchaikovsky: Violin Concerto, Op. 35".
+  Candidates:
+  1. 46.5% Felix Mendelssohn, Пётр Ильич Чайковский; Arabella Steinbacher, Orchestre de la Suisse Romande, Charles Dutoit - Mendelssohn: Violin Concerto, op. 64 / Tchaikovsky: Violin Concerto, op. 35
+             ≠ artist, album, year, ...
+             MusicBrainz, Hybrid SACD, 2015, None, Pentatone, PTC 5186 504, None
+  2. 41.0% Пётр Ильич Чайковский, Johannes Brahms; Давид Фёдорович Ойстрах, Royal Philharmonic Orchestra, London Philharmonic Orchestra, Norman Del Mar, Sir Malcolm Sargent - Tchaikovsky: Violin Concerto / Brahms: Violin Concerto
+             ≠ artist, album, year, ...
+             MusicBrainz, CD, 2002, GB, BBC Legends, BBCL 4102-2, None
+  3. 33.0% Edward Elgar; Nikolaj Szeps-Znaider, Staatskapelle Dresden, Sir Colin Davis - Violin Concerto
+             ≠ artist, album, year, ...
+             MusicBrainz, CD, 2010, JP, RCA Red Seal, SICC 1331, None
+  4. 33.0% Edward Elgar; Nikolaj Szeps-Znaider, Staatskapelle Dresden, Sir Colin Davis - Violin Concerto
+             ≠ artist, album, year, ...
+             MusicBrainz, CD, 2010, GB, RCA, 88697605882, None
+  5. 31.0% David Oistrach - Johann Sebastian Bach · Johannes Brahms · Pyotr Ilyich Tchaikovsky · Ludwig van Beethoven - Violinkonzerte · Violin Concertos / Violinromanzen · Violin Romances
+             ≠ artist, album, tracks, ...
+             Discogs, 2xCD, 0, Europe, Deutsche Grammophon, 447 427-2, None
+  6. 30.4% John Adams; Kent Nagano, Gidon Kremer - Violin Concerto
+             ≠ artist, album, year, ...
+             MusicBrainz, CD, 1996, US, Nonesuch, 7559-79360-2, None
+  7. 30.2% Johann Sebastian Bach • Johannes Brahms • Pyotr Ilyich Tchaikovsky / Ludwig van Beethoven, David Oistrach - Violinkonzerte • Violin Concertos / Violinromanzen • Violin Romances
+             ≠ artist, album, tracks, ...
+             Discogs, 2xCD, 0, US, Deutsche Grammophon, 447 427-2, None
+  8. 29.7% Johann Sebastian Bach · Johannes Brahms · Pyotr Ilyich Tchaikovsky / Ludwig van Beethoven - David Oistrach - Violinkonzerte = Violin Concertos / Violinromanzen = Violin Romances
+             ≠ artist, album, year, ...
+             Discogs, 2xCD, 1995, Europe, Deutsche Grammophon, 447 427-2, None
+  9. 26.1% Pyotr Ilyich Tchaikovsky / Johann Sebastian Bach - Mischa Elman With Paul Paray Cond. Boston Symphony Orchestra / Lawrance Collingwood - Concerto In D, Op. 35 / Concerto In E, BWV 1042
+             ≠ artist, album, year, ...
+             Discogs, Vinyl, 1977, US, Educational Media Associates, RR-453, None
+  10. 19.6% Various Artists - Violin Adagios
+             ≠ album, year, tracks, ...
+             Discogs, 2xCD, 2001, Germany, Decca, 467 675-2, None
+  11. 1.3% Sir John Barbirolli - The Complete Warner Recordings
+             ≠ album, year, tracks, ...
+             MusicBrainz, 109xCD, 2020, XW, Warner Classics, 0190295386085, None
+➜ # selection (default 1), Skip, Use as-is, as Tracks, Group albums,
+Rescan directory, Enter search, enter Id, aBort, eDit, edit Candidates?
+Looking up: /downloads/Sir John Barbirolli - Bach- Violin Concerto, BWV 1042 - Tchaikovsky- Violin Concerto, Op. 35 (2021) [24-192]
+Tagging Sir John Barbirolli - Bach: Violin Concerto, BWV 1042 - Tchaikovsky: Violin Concerto, Op. 35
+No album ID found.
+discogs: Searching for 'Bach Violin Concerto BWV 1042 Tchaikovsky Violin Concerto Op 35' with {'type': 'release'}
+musicbrainz: Requesting MusicBrainz release 290f4b53-8292-470b-b669-5a3b9dda5b24
+musicbrainz: Found 5 result(s)
+discogs: Found 5 result(s)
+discogs: Getting master release 1391920
+discogs: Getting master release 3708390
+Sending event: albuminfo_received
+Candidate: Johann Sebastian Bach · Johannes Brahms · Pyotr Ilyich Tchaikovsky / Ludwig van Beethoven - David Oistrach - Violinkonzerte = Violin Concertos / Violinromanzen = Violin Romances (12249813) from Discogs
+Computing track assignment...
+...done.
+Success. Distance: 0.70
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: David Oistrach - Johann Sebastian Bach · Johannes Brahms · Pyotr Ilyich Tchaikovsky · Ludwig van Beethoven - Violinkonzerte · Violin Concertos / Violinromanzen · Violin Romances (8131312) from Discogs
+Computing track assignment...
+...done.
+Success. Distance: 0.69
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Various Artists - Violin Adagios (26688413) from Discogs
+Computing track assignment...
+...done.
+Success. Distance: 0.80
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Johann Sebastian Bach • Johannes Brahms • Pyotr Ilyich Tchaikovsky / Ludwig van Beethoven, David Oistrach - Violinkonzerte • Violin Concertos / Violinromanzen • Violin Romances (21039748) from Discogs
+Computing track assignment...
+...done.
+Success. Distance: 0.70
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Pyotr Ilyich Tchaikovsky / Johann Sebastian Bach - Mischa Elman With Paul Paray Cond. Boston Symphony Orchestra / Lawrance Collingwood - Concerto In D, Op. 35 / Concerto In E, BWV 1042 (15755018) from Discogs
+Computing track assignment...
+...done.
+Success. Distance: 0.74
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Felix Mendelssohn, Пётр Ильич Чайковский; Arabella Steinbacher, Orchestre de la Suisse Romande, Charles Dutoit - Mendelssohn: Violin Concerto, op. 64 / Tchaikovsky: Violin Concerto, op. 35 (558268a5-de75-4725-8552-37069755d18a) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.54
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Пётр Ильич Чайковский, Johannes Brahms; Давид Фёдорович Ойстрах, Royal Philharmonic Orchestra, London Philharmonic Orchestra, Norman Del Mar, Sir Malcolm Sargent - Tchaikovsky: Violin Concerto / Brahms: Violin Concerto (d82ccddf-b559-40dc-97d4-1238d69bb3d8) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.59
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Edward Elgar; Nikolaj Szeps-Znaider, Staatskapelle Dresden, Sir Colin Davis - Violin Concerto (00000000-0000-4000-8000-000000000003) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.67
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Edward Elgar; Nikolaj Szeps-Znaider, Staatskapelle Dresden, Sir Colin Davis - Violin Concerto (00000000-0000-4000-8000-000000000004) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.67
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: John Adams; Kent Nagano, Gidon Kremer - Violin Concerto (00000000-0000-4000-8000-000000000006) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.70
+Sending event: album_matched
+Sending event: albuminfo_received
+Candidate: Sir John Barbirolli - The Complete Warner Recordings (290f4b53-8292-470b-b669-5a3b9dda5b24) from MusicBrainz
+Computing track assignment...
+...done.
+Success. Distance: 0.99
+Sending event: album_matched

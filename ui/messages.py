@@ -6,7 +6,7 @@ from config import setup_logging
 from i18n.translations import t
 from telegram.helpers import escape_markdown
 from core.plugin_detector import has_discogs_plugin
-from ui.match_view import format_match_body
+from ui.match_view import format_candidates, format_match_body
 
 logger = setup_logging()
 
@@ -234,39 +234,7 @@ def format_import_status(result):
 
     # --- Multiple Candidates ---
     elif result.get('candidates'):
-        cands = result['candidates']
-
-        # 🎯 LIMIT: Show only first N candidates
-        shown_cands = cands[:MAX_CANDIDATES_SHOWN]
-        total_cands = len(cands)
-
-        msg += f"📋 *{t('status.multiple_candidates', count=total_cands)}*\n\n"
-
-        for i, c in enumerate(shown_cands):
-            num = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣','8️⃣','9️⃣','🔟'][i] if i < 10 else f"{i + 1}\\."
-
-            # None handling
-            raw_similarity = c.get('similarity')
-            raw_artist = c.get('artist')
-            raw_album = c.get('album')
-            raw_year = c.get('year')
-
-            similarity_display = raw_similarity if raw_similarity is not None else '?'
-            artist_display = raw_artist if raw_artist is not None else '?'
-            album_display = raw_album if raw_album is not None else '?'
-            year_display = raw_year if raw_year is not None else '?'
-
-            artist = escape_markdown(str(artist_display), version=2)
-            album = escape_markdown(str(album_display), version=2)
-            year = escape_markdown(str(year_display), version=2)
-            sim = escape_markdown(str(similarity_display), version=2)
-
-            msg += f"{num} \\({sim}%\\) {artist} — _{album}_ \\({year}\\)\n\n"
-
-        # Show count if truncated
-        if total_cands > MAX_CANDIDATES_SHOWN:
-            remaining = total_cands - MAX_CANDIDATES_SHOWN
-            msg += f"\n_" + t('status.more_candidates', count=remaining) + "_\n"
+        msg += format_candidates(result['candidates'], MAX_CANDIDATES_SHOWN) + "\n"
 
     # --- Fallback / No match ---
     else:

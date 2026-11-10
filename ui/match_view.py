@@ -360,3 +360,59 @@ def format_match_body(match: Dict[str, Any], budget: int = DEFAULT_BUDGET) -> st
         used = sum(len(line) + 1 for line in out)
         out.append(tracks_quote(tracks, max(budget - used, 300)))
     return '\n'.join(out)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Several candidates
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NUMBER_EMOJI = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
+SOURCE_NAMES = {'musicbrainz': 'MusicBrainz', 'discogs': 'Discogs'}
+
+
+def _candidate_number(i: int) -> str:
+    return NUMBER_EMOJI[i] if i < len(NUMBER_EMOJI) else f"{i + 1}\\."
+
+
+def _release_info(candidate: Dict[str, Any]) -> List[str]:
+    """Media · year · country · label · catalogue number (whatever is known)."""
+    keys = ('format', 'year', 'country', 'label', 'catalog_num')
+    return [str(candidate[k]) for k in keys if candidate.get(k) not in (None, '', 0, '0')]
+
+
+def format_candidates(candidates: List[Dict[str, Any]], limit: int = 10) -> str:
+    """
+    The releases beet proposes. The album and the release details (media,
+    year, country, label, catalogue number) come first: they are what tells
+    apart releases of the same music, while classical artist credits are long
+    lists of composers and performers.
+    """
+    out = [t('match.candidates_header', count=len(candidates))]
+    for i, candidate in enumerate(candidates[:limit]):
+        source = SOURCE_NAMES.get(candidate.get('source'))
+        out.append('')
+        out.append(f"{_candidate_number(i)} *{esc(_similarity(candidate.get('similarity')))}%*"
+                   + (f" · {esc(source)}" if source else ''))
+        out.append(f"💿 *{esc(shorten(candidate.get('album') or '?', 90))}*")
+        out.append(f"🎤 {esc(shorten(candidate.get('artist') or '?', 90))}")
+        info = _release_info(candidate)
+        if info:
+            out.append(f"📀 {esc(' · '.join(info))}")
+        if candidate.get('differences'):
+            out.append(t('match.differs_in', fields=esc(', '.join(candidate['differences']))))
+    if len(candidates) > limit:
+        out.append('')
+        out.append('_' + t('status.more_candidates', count=len(candidates) - limit) + '_')
+    return '\n'.join(out)
+
+
+def candidate_button_label(i: int, candidate: Dict[str, Any], limit: int = 48) -> str:
+    """Plain-text button: '3️⃣ 33% Violin Concerto · 2010 JP'."""
+    number = NUMBER_EMOJI[i] if i < len(NUMBER_EMOJI) else f"{i + 1}."
+    details = ' '.join(str(candidate[k]) for k in ('year', 'country')
+                       if candidate.get(k) not in (None, '', 0, '0'))
+    tail = f" · {details}" if details else ''
+    album = candidate.get('album') or candidate.get('artist') or '?'
+    room = max(limit - len(tail), 12)
+    album = album if len(album) <= room else album[:room - 1].rstrip() + '…'
+    return f"{number} {_similarity(candidate.get('similarity'))}% {album}{tail}"

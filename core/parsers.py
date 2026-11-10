@@ -520,228 +520,158 @@ def parse_verbose_candidates_1(output: str) -> List[Dict[str, Any]]:
     return candidates
 
 
+_MB_UUID_RE = re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', re.IGNORECASE)
+# beet -vv: "Candidate: Artist - Album (id) from MusicBrainz" (older: without "from ...")
+_CANDIDATE_ID_RE = re.compile(
+    r'^Candidate:\s*(?P<title>.+?)\s*\((?P<id>[^()\s]+)\)(?:\s+from\s+(?P<source>\w+))?\s*$',
+    re.MULTILINE)
+_DISTANCE_RE = re.compile(r'Distance:\s*([\d.]+)')
+# Candidate list: "  1. 46.5% Artist - Album" (older beet: "1. (46.5%) Artist - Album")
+_CANDIDATE_LINE_RE = re.compile(r'^\s*(\d+)\.\s*\(?([\d.]+)%\)?\s+(.+?)\s*$')
+_PENALTY_LINE_RE = re.compile(r'^\s*≠\s*(.+?)\s*$')
+_DISAMBIG_LINE_RE = re.compile(r'^\s*(MusicBrainz|Discogs)\s*,\s*(.*?)\s*$', re.IGNORECASE)
+
+
+def _value(text: Optional[str]) -> Optional[str]:
+    text = (text or '').strip()
+    return None if text.lower() in ('', 'none', 'n/a', '0') else text
+
+
+def _candidate_ids(cleaned: str) -> List[Dict[str, Any]]:
+    """Release IDs from the verbose "Candidate: ... (id) from <source>" lines."""
+    found = []
+    for match in _CANDIDATE_ID_RE.finditer(cleaned):
+        raw_id = match.group('id')
+        source = (match.group('source') or '').lower()
+        if source not in ('musicbrainz', 'discogs'):
+            if _MB_UUID_RE.fullmatch(raw_id):
+                source = 'musicbrainz'
+            elif re.fullmatch(r'[rm]?\d+', raw_id, re.IGNORECASE):
+                source = 'discogs'
+            else:
+                continue
+        if source == 'discogs':
+            raw_id = raw_id.lower() if raw_id[0].lower() in 'rm' else f"r{raw_id}"
+        # Distance printed after this candidate, before the next one
+        rest = cleaned[match.end():]
+        next_candidate = rest.find('\nCandidate:')
+        distance = _DISTANCE_RE.search(rest if next_candidate == -1 else rest[:next_candidate])
+        found.append({
+            'title': match.group('title').strip(),
+            'source': source,
+            'id': raw_id,
+            'distance': float(distance.group(1)) if distance else None,
+            'used': False,
+        })
+    return found
+
+
+def _candidate_list(cleaned: str) -> List[Dict[str, Any]]:
+    """The numbered list beet shows to the user, with penalties and release info."""
+    lines = cleaned.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == 'Candidates:'), None)
+    if start is None:
+        return []
+    listed: List[Dict[str, Any]] = []
+    for line in lines[start + 1:]:
+        if match := _CANDIDATE_LINE_RE.match(line):
+            listed.append({'number': int(match.group(1)), 'similarity': float(match.group(2)),
+                           'title': match.group(3), 'penalties': [], 'source': None, 'info': []})
+        elif listed and (match := _PENALTY_LINE_RE.match(line)) and not listed[-1]['penalties']:
+            listed[-1]['penalties'] = [p.strip() for p in match.group(1).split(',')
+                                       if p.strip() and p.strip() != '...']
+        elif listed and (match := _DISAMBIG_LINE_RE.match(line)):
+            listed[-1]['source'] = match.group(1).lower()
+            listed[-1]['info'] = [p.strip() for p in match.group(2).split(',')]
+        elif listed:
+            break  # beet's prompt
+    return listed
+
+
+def _match_id(entry: Dict[str, Any], ids: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    The verbose line of this candidate: same title and source. Several releases
+    can share a title (e.g. two pressings): pick the closest distance; each ID
+    is used once.
+    """
+    title = normalize_title(entry['title'])
+    expected = 1 - entry['similarity'] / 100
+    pool = [i for i in ids if not i['used'] and (entry['source'] in (None, i['source']))]
+    same = [i for i in pool if normalize_title(i['title']) == title]
+    if not same:
+        same = [i for i in pool if title and (title in normalize_title(i['title'])
+                                              or normalize_title(i['title']) in title)]
+    if not same:
+        return None
+    best = min(same, key=lambda i: abs((i['distance'] if i['distance'] is not None else expected) - expected))
+    best['used'] = True
+    return best
+
+
 def parse_verbose_candidates(output: str) -> List[Dict[str, Any]]:
     """
-    Two-phase parser for verbose beet output with multiple candidates.
-    Enhanced to capture Discogs IDs in all formats.
+    Candidates of a beet import that needs a choice: the numbered list beet
+    prints (similarity, artist - album, penalties, media/year/country/label/
+    catalogue number), each with its release ID taken from the verbose
+    "Candidate: ... (id) from <source>" lines.
     """
     cleaned = clean_ansi_codes(output or "")
+    ids = _candidate_ids(cleaned)
     candidates = []
 
-    id_map = {}  # Map: normalized_title -> (source, id_value, distance)
+    for entry in _candidate_list(cleaned):
+        matched = _match_id(entry, ids)
+        source = (matched or {}).get('source') or entry['source']
+        release_id = (matched or {}).get('id')
+        artist, _, album = entry['title'].partition(' - ')
+        info = entry['info'] + [None] * 6
+        media, year, country, label, catno = (_value(v) for v in info[:5])
 
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # PHASE 1: Extract IDs from verbose debug section
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    # MusicBrainz candidates (UUID format)
-    mb_pattern = re.compile(
-        r'Candidate:\s*(.+?)\s*\(([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\)\s*\n'
-        r'.*?Distance:\s*([\d.]+)',
-        re.DOTALL | re.IGNORECASE
-    )
-
-    for match in mb_pattern.finditer(cleaned):
-        full_title = match.group(1).strip()
-        mb_id = match.group(2)
-        distance = float(match.group(3))
-
-        normalized = normalize_title(full_title)
-        id_map[normalized] = ('musicbrainz', mb_id, distance)
-
-        logger.debug(f"Found MusicBrainz ID: {mb_id} for '{full_title}' (distance: {distance})")
-
-    # ✅ FIX: Discogs candidates - ENHANCED pattern for all formats
-    # Pattern 1: With r/m prefix: (r1234567) or (m1234567)
-    discogs_pattern_prefixed = re.compile(
-        r'Candidate:\s*(.+?)\s*\(([rm]\d+)\)\s*\n'
-        r'.*?Distance:\s*([\d.]+)',
-        re.DOTALL | re.IGNORECASE
-    )
-
-    for match in discogs_pattern_prefixed.finditer(cleaned):
-        full_title = match.group(1).strip()
-        discogs_id = match.group(2).lower()  # Already has r/m prefix
-        distance = float(match.group(3))
-
-        normalized = normalize_title(full_title)
-        if normalized not in id_map:  # MusicBrainz has priority
-            id_map[normalized] = ('discogs', discogs_id, distance)
-            logger.debug(f"Found Discogs ID (prefixed): {discogs_id} for '{full_title}'")
-
-    # ✅ FIX: Pattern 2: Pure number format: (1234567) - MOST COMMON
-    # This catches the format you're seeing: "... (2965563)\n...Distance: 0.56"
-    discogs_pattern_pure = re.compile(
-        r'discogs:.*?Candidate:\s*(.+?)\s*\((\d{6,})\)\s*\n'  # Note 'discogs:' prefix in verbose mode
-        r'.*?Distance:\s*([\d.]+)',
-        re.DOTALL | re.IGNORECASE
-    )
-
-    for match in discogs_pattern_pure.finditer(cleaned):
-        full_title = match.group(1).strip()
-        discogs_number = match.group(2)
-        distance = float(match.group(3))
-
-        normalized = normalize_title(full_title)
-        if normalized not in id_map:
-            # Add 'r' prefix (assume release not master)
-            discogs_id = f"r{discogs_number}"
-            id_map[normalized] = ('discogs', discogs_id, distance)
-            logger.debug(f"Found Discogs ID (pure number): {discogs_id} for '{full_title}'")
-
-    # ✅ FIX: Pattern 3: Fallback - any "Getting master release" line
-    discogs_master_pattern = re.compile(
-        r'discogs:\s*Getting\s+(?:master|release)\s+release\s+(\d+)',
-        re.IGNORECASE
-    )
-
-    # Build a map of Discogs API calls to track which ID belongs to which candidate
-    discogs_api_calls = []
-    for match in discogs_master_pattern.finditer(cleaned):
-        discogs_number = match.group(1)
-        discogs_api_calls.append(discogs_number)
-        logger.debug(f"Found Discogs API call for ID: {discogs_number}")
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # PHASE 2: Extract details from user-friendly candidates section
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    block_pattern = re.compile(
-        r'^\s*(\d+)\.\s*\(([\d.]+)%\)\s*(.+?)\s*\n'
-        r'\s*≠\s*(.+?)\s*\n'
-        r'\s*(MusicBrainz|Discogs),\s*(.+?)(?=\n\s*\d+\.|$)',
-        re.MULTILINE | re.IGNORECASE | re.DOTALL
-    )
-
-    discogs_candidate_index = 0  # Track which Discogs candidate we're on
-
-    for match in block_pattern.finditer(cleaned):
-        idx = int(match.group(1))
-        similarity = float(match.group(2))
-        artist_album = match.group(3).strip()
-        differences_line = match.group(4).strip()
-        source = match.group(5).lower()
-        metadata = match.group(6).strip()
-
-        # Parse metadata
-        parts = [p.strip() for p in metadata.split(',')]
-        format_ = parts[0] if len(parts) > 0 and parts[0].lower() != 'none' else None
-        year = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
-        country = parts[2] if len(parts) > 2 and parts[2].lower() not in ('none', 'n/a', '') else None
-        label = parts[3] if len(parts) > 3 and parts[3].lower() not in ('none', 'n/a', '') else None
-        catno = parts[4] if len(parts) > 4 and parts[4].lower() not in ('none', 'n/a', '') else None
-
-        # Split artist and album
-        artist = artist_album
-        album = None
-        if ' - ' in artist_album:
-            artist, album = artist_album.split(' - ', 1)
-
-        differences = [d.strip() for d in differences_line.split(',') if d.strip()]
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # PHASE 3: Match with ID map
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        normalized = normalize_title(artist_album)
-
-        id_source = source
-        id_value = None
-        distance = None
-        mb_id = None
-        mb_url = None
-        discogs_id = None
-        discogs_url = None
-
-        # Try exact match first
-        if normalized in id_map:
-            id_source, id_value, distance = id_map[normalized]
-            logger.debug(f"Matched candidate #{idx} to {id_source} ID {id_value}")
-        else:
-            # Fuzzy fallback
-            for key, (candidate_source, candidate_id, candidate_dist) in id_map.items():
-                if normalized in key or key in normalized:
-                    id_source = candidate_source
-                    id_value = candidate_id
-                    distance = candidate_dist
-                    logger.debug(f"Fuzzy matched candidate #{idx} to {id_source} ID {id_value}")
-                    break
-
-        # ✅ FIX: If still no ID and this is a Discogs candidate, use API call index
-        if not id_value and source == 'discogs' and discogs_candidate_index < len(discogs_api_calls):
-            id_value = f"r{discogs_api_calls[discogs_candidate_index]}"
-            id_source = 'discogs'
-            discogs_candidate_index += 1
-            logger.debug(f"Matched candidate #{idx} to Discogs ID from API call: {id_value}")
-
-        # Build URLs
-        if id_value:
-            if id_source == 'musicbrainz':
-                mb_id = id_value
-                mb_url = build_url_from_id('musicbrainz', id_value)
-            elif id_source == 'discogs':
-                discogs_id = id_value
-                discogs_url = build_url_from_id('discogs', id_value)
+        mb_id = release_id if source == 'musicbrainz' else None
+        discogs_id = release_id if source == 'discogs' else None
+        if not release_id:
+            logger.warning(f"No release ID found for candidate #{entry['number']}: {entry['title']}")
 
         candidates.append({
-            'number': idx,
-            'similarity': similarity,
-            'artist': artist.strip(),
-            'album': album.strip() if album else None,
-            'source': id_source,
-            'format': format_,
+            'number': entry['number'],
+            'similarity': entry['similarity'],
+            'artist': artist.strip() or None,
+            'album': album.strip() or None,
+            'source': source,
+            'format': media,
             'year': year,
             'country': country,
             'label': label,
             'catalog_num': catno,
             'mb_id': mb_id,
-            'mb_url': mb_url,
+            'mb_url': build_url_from_id('musicbrainz', mb_id) if mb_id else None,
             'discogs_id': discogs_id,
-            'discogs_url': discogs_url,
-            'distance': distance,
-            'differences': differences,
-            'info_short': f"{artist.strip()} - {album.strip() if album else 'Unknown'}",
-            'raw_output': match.group(0)
+            'discogs_url': build_url_from_id('discogs', discogs_id) if discogs_id else None,
+            'distance': (matched or {}).get('distance'),
+            'differences': entry['penalties'],
+            'info_short': entry['title'],
         })
 
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # FALLBACK: If no structured candidates, use ID-only extraction
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if not candidates and id_map:
-        logger.warning("No structured candidates found, using ID-only fallback")
-        for idx, (normalized, (source, id_value, distance)) in enumerate(id_map.items(), 1):
-            mb_id = None
-            mb_url = None
-            discogs_id = None
-            discogs_url = None
-
-            if source == 'musicbrainz':
-                mb_id = id_value
-                mb_url = build_url_from_id('musicbrainz', id_value)
-            elif source == 'discogs':
-                discogs_id = id_value
-                discogs_url = build_url_from_id('discogs', id_value)
-
+    # No readable list (unexpected format): offer what the verbose lines say
+    if not candidates:
+        for number, item in enumerate(ids, 1):
+            artist, _, album = item['title'].partition(' - ')
+            similarity = round((1 - item['distance']) * 100, 1) if item['distance'] is not None else None
+            mb_id = item['id'] if item['source'] == 'musicbrainz' else None
+            discogs_id = item['id'] if item['source'] == 'discogs' else None
             candidates.append({
-                'number': idx,
-                'similarity': round((1 - distance) * 100, 1),
-                'artist': None,
-                'album': None,
-                'source': source,
-                'format': None,
-                'year': None,
-                'country': None,
-                'label': None,
-                'catalog_num': None,
-                'mb_id': mb_id,
-                'mb_url': mb_url,
+                'number': number, 'similarity': similarity,
+                'artist': artist.strip() or None, 'album': album.strip() or None,
+                'source': item['source'], 'format': None, 'year': None, 'country': None,
+                'label': None, 'catalog_num': None,
+                'mb_id': mb_id, 'mb_url': build_url_from_id('musicbrainz', mb_id) if mb_id else None,
                 'discogs_id': discogs_id,
-                'discogs_url': discogs_url,
-                'distance': distance,
-                'differences': [],
-                'info_short': normalized,
-                'raw_output': cleaned
+                'discogs_url': build_url_from_id('discogs', discogs_id) if discogs_id else None,
+                'distance': item['distance'], 'differences': [], 'info_short': item['title'],
             })
-
+        candidates.sort(key=lambda c: -(c['similarity'] or 0))
+        for number, candidate in enumerate(candidates, 1):
+            candidate['number'] = number
     return candidates
 
 

@@ -7,6 +7,7 @@ from i18n.translations import t
 from config import IMPORT_PATH
 from core.plugin_detector import has_discogs_plugin
 from core.directory_analyzer import get_relative_path
+from ui.match_view import candidate_button_label
 
 
 def create_directory_list_keyboard(dirs):
@@ -149,21 +150,7 @@ def create_import_status_keyboard(result, context=None):
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     elif result.get('candidates'):
         candidates = result['candidates'][:10]
-        num_emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
-
         for i, cand in enumerate(candidates):
-            # Handle None values
-            similarity = cand.get('similarity') or '?'
-            artist = cand.get('artist') or '?'
-            album = cand.get('album') or '?'
-            year = cand.get('year') or '?'
-
-            # Build label with truncation
-            label = f"{artist} — {album} ({year})"
-            if len(label) > 45:
-                label = label[:42] + "..."
-
-            emoji = num_emoji[i] if i < len(num_emoji) else f"{i+1}."
 
             # Extract ID for validation
             id_short = None
@@ -181,7 +168,7 @@ def create_import_status_keyboard(result, context=None):
             # ✅ Candidate button - shows preview first
             keyboard.append([
                 InlineKeyboardButton(
-                    f"{emoji} ({similarity}%) {label}",
+                    candidate_button_label(i, cand),
                     callback_data=callback_data  # Handler: handle_match_select()
                 )
             ])

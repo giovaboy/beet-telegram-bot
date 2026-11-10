@@ -237,6 +237,7 @@
         "missing": "❌ *Missing from your files: {count}/{total}* \\({percent}%\\)",
         "unmatched": "➕ *Local files without a match: {count}*",
         "more": "…and {count} more",
-        "minor_hidden": "✏️ {count} more with case/punctuation changes only"
+        "minor_hidden": "✏️ {count} more with case/punctuation changes only",
+        "candidates_header": "📋 *{count} candidates* · pick one to see the full comparison"
     }
 }

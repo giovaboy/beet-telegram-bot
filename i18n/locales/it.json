@@ -237,6 +237,7 @@
         "missing": "❌ *Mancano nei tuoi file: {count}/{total}* \\({percent}%\\)",
         "unmatched": "➕ *File locali senza corrispondenza: {count}*",
         "more": "…e altre {count}",
-        "minor_hidden": "✏️ altre {count} con differenze solo di maiuscole/punteggiatura"
+        "minor_hidden": "✏️ altre {count} con differenze solo di maiuscole/punteggiatura",
+        "candidates_header": "📋 *{count} candidati* · scegline uno per vedere il confronto completo"
     }
 }

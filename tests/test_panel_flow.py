@@ -365,7 +365,7 @@ async def test_back_to_candidates_from_preview(env):
     await press(env, "start_import_0")
     await press(env, f"match_0_{MB_ID[:8]}")
     await press(env, "cancel_preview")
-    assert "Candidates" in live(env)['text']
+    assert "2 candidates" in live(env)["text"]
     assert flows.pending_import(env.context) is None
     assert_single_keyboard(env)
 
@@ -457,7 +457,7 @@ async def test_list_during_import_offers_way_back(env):
     await commands.list_imports(_update("/list"), env.context, env.manager)
     assert "Import in progress" in live(env)['text']
     await press(env, "show_status")
-    assert "Candidates" in live(env)['text']
+    assert "2 candidates" in live(env)["text"]
     assert env.bot.parse_errors == []
 
 

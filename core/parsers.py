@@ -103,6 +103,17 @@ def extract_musicbrainz_id(text: str) -> Optional[str]:
 
 #     return None
 def extract_discogs_id(text: str) -> Optional[str]:
+    """
+    Discogs ID as 'r123456' (release) or 'm123456' (master).
+
+    A bare number is accepted only when the text is nothing but the ID
+    ("123456", "(123456)", "[r123456]"): this function also scans whole beet
+    outputs, where catalogue numbers and years must not be taken for IDs.
+    """
+    text = text or ''
+    if match := re.fullmatch(r'\s*[\[(]?([rm]?)(\d+)[\])]?\s*', text, re.IGNORECASE):
+        return f"{(match.group(1) or 'r').lower()}{match.group(2)}"
+
     # Try URL format first (most reliable)
     match = re.search(r'discogs\.com/(?:release|master)/(\d+)', text, re.IGNORECASE)
     if match:

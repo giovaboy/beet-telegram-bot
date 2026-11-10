@@ -79,7 +79,7 @@ beet-telegram-bot/
 The image is published on Docker Hub as
 [`giovaboy/beet-telegram-bot`](https://hub.docker.com/r/giovaboy/beet-telegram-bot)
 (tags: `latest` and the short commit hash), built by GitHub Actions on every push
-to `main`. You only need the compose file and an `.env`:
+to `main` once the test suite passes. You only need the compose file and an `.env`:
 
 ```bash
 mkdir ~/beet-telegram-bot && cd ~/beet-telegram-bot
@@ -394,6 +394,9 @@ Tracks · 27 changed
 - Differences that are only case, quotes, dashes or accents are counted
   separately (✏️) and never highlighted, so real changes stand out.
 - Missing tracks and local files without a match are always listed.
+- The directory details warn before importing when beet can't handle the
+  folder: audio formats it can't import (`.dff`, `.tak`, `.iso`…) or a single
+  audio file + CUE sheet that needs splitting into tracks first.
 - Consecutive movements of the same work with exactly the same change are
   shown as one line (`#8–11`), the movement names replaced by `…`.
 - The per-track list is an expandable quote; on very large releases the

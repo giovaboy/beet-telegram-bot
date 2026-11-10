@@ -115,6 +115,12 @@ def test_extract_discogs_id_not_found():
     assert result is None
 
 
+def test_extract_discogs_id_ignores_numbers_inside_beet_output():
+    """Catalogue numbers and years in a beet output are not Discogs IDs"""
+    assert extract_discogs_id("MusicBrainz, CD, 1989, DE, Atlantic, 782040") is None
+    assert extract_discogs_id("Tagging: 123456 items") is None
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Test: Single Match Parsing
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

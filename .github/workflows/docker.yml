@@ -1,4 +1,5 @@
-# Build the image and publish it to Docker Hub on every push to main
+# Run the tests, then build the image and publish it to Docker Hub,
+# on every push to main. A failing test means no new image.
 name: Docker image
 
 on:
@@ -11,13 +12,28 @@ on:
       - 'LICENSE'
       - '*.jpg'
       - 'beet-telegram-bot.yml'
-      - 'tests/**'
-      - 'pytest.ini'
-      - 'requirements-dev.txt'
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # same as the image (python:3.11-slim)
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt pytest==7.4.3 pytest-asyncio==0.23.2
+
+      # Tests must pass. The 70% coverage threshold of pytest.ini (used by the
+      # Dockerfile 'testing' stage) is not enforced here.
+      - run: python -m pytest -o addopts="-ra --strict-markers"
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

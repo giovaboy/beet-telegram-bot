@@ -30,7 +30,16 @@ STATE_FILE = '/tmp/beet_import_state.json'
 PERSISTENCE_FILE = os.path.join(os.path.dirname(STATE_FILE), 'beet_bot_persistence.pickle')
 
 # Supported file extensions
-AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wav', '.wv', '.ape'}
+# Formats beet can import (beets' mediafile: MP3, AAC/ALAC, OGG, Opus, FLAC,
+# APE, WavPack, Musepack, WMA, AIFF, DSF, WAV)
+AUDIO_EXTENSIONS = {
+    '.flac', '.mp3', '.m4a', '.alac', '.ogg', '.oga', '.opus', '.wav', '.wv', '.ape',
+    '.mpc', '.wma', '.aif', '.aiff', '.aifc', '.dsf',
+}
+# Audio that beet cannot import: shown as a warning instead of being ignored
+UNSUPPORTED_AUDIO_EXTENSIONS = {
+    '.dff', '.tak', '.mka', '.shn', '.tta', '.ofr', '.aac', '.ac3', '.dts', '.iso',
+}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 METADATA_EXTENSIONS = {'.pdf', '.nfo', '.txt', '.log', '.cue', '.m3u'}
 

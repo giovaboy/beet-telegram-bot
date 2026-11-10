@@ -75,8 +75,25 @@ def format_directory_details(dir_name, structure, parent_path=None):
         if structure.get('metadata_files'):
             msg += t('directory.metadata_files', count=len(structure['metadata_files'])) + "\n"
 
+    msg += format_import_warnings(structure)
     logger.debug("""format_directory_details:\n%s""", msg)
     return msg
+
+
+def format_import_warnings(structure) -> str:
+    """Problems beet would hit on import, shown before starting it."""
+    parts = structure.get('discs') or [structure]
+    unsupported = [f for part in parts for f in part.get('unsupported_audio', [])]
+    cue_parts = [part for part in parts if part.get('cue_image')]
+
+    warnings = []
+    if unsupported:
+        exts = ', '.join(sorted({f['ext'] for f in unsupported}))
+        warnings.append(t('directory.unsupported_audio', count=len(unsupported),
+                          exts=escape_markdown(exts, version=2)))
+    if cue_parts:
+        warnings.append(t('directory.cue_image'))
+    return "\n" + "\n".join(warnings) + "\n" if warnings else ""
 
 
 def format_file_list(structure):

@@ -3,7 +3,7 @@ Music directory analyzer (refactored)
 """
 import re
 from pathlib import Path
-from config import AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, METADATA_EXTENSIONS
+from config import AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, METADATA_EXTENSIONS, UNSUPPORTED_AUDIO_EXTENSIONS
 
 MEDIA_EXTENSIONS = set(IMAGE_EXTENSIONS) | METADATA_EXTENSIONS
 
@@ -67,10 +67,11 @@ def find_importable_albums(root_path: Path) -> list:
     
     def is_album_dir(path: Path) -> bool:
         """Check if a directory is an album (has audio or disc subdirs)"""
-        # Check for direct audio files
+        # Check for direct audio files (also formats beet can't import:
+        # the folder is listed with a warning instead of silently missing)
         has_audio = any(
-            f.suffix.lower() in AUDIO_EXTENSIONS 
-            for f in path.glob('*') 
+            f.suffix.lower() in AUDIO_EXTENSIONS | UNSUPPORTED_AUDIO_EXTENSIONS
+            for f in path.glob('*')
             if f.is_file()
         )
         
@@ -170,15 +171,21 @@ def analyze_directory(path: str):
 def analyze_single_dir(path: Path):
     """Analyze a single album directory for audio, images, and metadata content."""
     audio_files = _collect_files(path, AUDIO_EXTENSIONS, recursive=True)
+    unsupported = _collect_files(path, UNSUPPORTED_AUDIO_EXTENSIONS, recursive=True)
     media_files = find_media(path, recursive=True)
     metadata_files = find_metadata(path, recursive=True)
+    cue_count = sum(1 for f in metadata_files if f['ext'] == '.cue')
 
     return {
         'audio_files': audio_files,
         'images': [f for f in media_files if f['type'] == 'image'],
         'metadata_files': metadata_files,
         'audio_count': len(audio_files),
-        'total_size': sum(f['size'] for f in audio_files)
+        'total_size': sum(f['size'] for f in audio_files),
+        # Audio beet cannot import (e.g. .dff, .iso): file names, shown as a warning
+        'unsupported_audio': unsupported,
+        # One audio file per .cue sheet: a whole-disc image that beet won't split
+        'cue_image': cue_count > 0 and 0 < len(audio_files) <= cue_count,
     }
 
 

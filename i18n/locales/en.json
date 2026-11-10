@@ -46,7 +46,9 @@
         "images_limited": "ℹ️ Showing only first 10 of {count} images",
         "no_images": "❌ No images found",
         "data_unavailable": "❌ Data unavailable, please retry",
-        "already_showing": "Already showing this directory"
+        "already_showing": "Already showing this directory",
+        "unsupported_audio": "⚠️ *{count} audio files beet cannot import* \\({exts}\\)\\. Convert them first, e\\.g\\. to FLAC\\.",
+        "cue_image": "⚠️ *Single audio file \\+ CUE sheet*: beet won't split it into tracks\\. Split it first \\(e\\.g\\. with shnsplit or CUETools\\)\\."
     },
     "list": {
         "refreshed": "List refreshed",

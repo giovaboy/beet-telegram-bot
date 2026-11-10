@@ -16,9 +16,9 @@ from typing import Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.helpers import escape_markdown
 
-from config import IMPORT_PATH, DIFF_STYLE, setup_logging
+from config import IMPORT_PATH, setup_logging
 from core.directory_analyzer import analyze_directory, get_search_query, get_relative_path
-from core.parsers import format_difference_with_diff, extract_musicbrainz_id
+from core.parsers import extract_musicbrainz_id
 from core.telegram_utils import is_message_too_long
 from core.utils import is_within_import_path
 from i18n.translations import t
@@ -38,7 +38,6 @@ logger = setup_logging()
 MAX_IMAGES = 10
 MAX_METADATA_SHOWN = 15
 MAX_METADATA_SIZE_MB = 50
-MAX_PREVIEW_DIFFERENCES = 15
 PENDING_IMPORT_TIMEOUT = 2 * 60 * 60  # 2 hours
 
 _BROWSE_KEYS = ('current_dir_structure', 'cached_dir_path', 'metadata_files_list')
@@ -346,10 +345,9 @@ def status_text(result: dict) -> str:
     text = format_import_status(result)
     if not is_message_too_long(text, parse_mode='MarkdownV2'):
         return text
+    # The match view keeps itself within budget; long candidate lists are cut here
     shrunk = copy.deepcopy(result)
-    if shrunk.get('single_match') and shrunk['single_match'].get('differences'):
-        shrunk['single_match']['differences'] = shrunk['single_match']['differences'][:10]
-    elif shrunk.get('candidates'):
+    if shrunk.get('candidates'):
         shrunk['candidates'] = shrunk['candidates'][:5]
     return format_import_status(shrunk)  # panel.fit() truncates whatever is left
 
@@ -466,29 +464,7 @@ def preview_text(result: dict, id_type: str) -> str:
     url = preview.get("mb_url") if id_type == 'mb' else preview.get("discogs_url")
     link = f"\n{t('fields.link', source=_source_name(id_type), url=url)}\n" if url else ''
 
-    body = format_match_body(preview)
-    if body:
-        return f"🔎 *{t('status.preview')}*\n\n{body}\n{link}"
-
-    # Legacy rendering, used when beet's output could not be parsed in detail
-    def field(key):
-        value = preview.get(key)
-        return esc('?' if value is None else value)
-
-    msg = f"🎯 *{t('status.preview')}*\n\n"
-    msg += f"🎤 {t('fields.artist', artist=field('artist'))}\n"
-    msg += f"💿 {t('fields.album', album=field('album'))}\n"
-    msg += f"📅 {t('fields.year', year=field('year'))}\n"
-    msg += f"📊 {t('fields.similarity', similarity=field('similarity'))}\n"
-
-    differences = preview.get("differences") or []
-    if differences:
-        msg += "\n⚠️ *" + t('status.differences') + "*\n"
-        for diff in differences[:MAX_PREVIEW_DIFFERENCES]:
-            msg += format_difference_with_diff(diff, style=DIFF_STYLE) + "\n"
-        if len(differences) > MAX_PREVIEW_DIFFERENCES:
-            msg += f"\n{t('fields.more_diff', remaining=len(differences) - MAX_PREVIEW_DIFFERENCES)}\n"
-    return msg + link
+    return f"🔎 *{t('status.preview')}*\n\n{format_match_body(preview)}\n{link}"
 
 
 async def run_preview(context, chat_id, manager, id_value: str, id_type: str, *,

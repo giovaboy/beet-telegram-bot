@@ -34,15 +34,29 @@ AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wav', '.wv', '.a
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 METADATA_EXTENSIONS = {'.pdf', '.nfo', '.txt', '.log', '.cue', '.m3u'}
 
-# Diff style for displaying differences
-# Options: 'char', 'word', 'smart', 'simple'
-DIFF_STYLE = os.environ.get('DIFF_STYLE', 'smart')
-
 # Logging Configuration
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+
+
+def parse_log_level(value):
+    """
+    'debug', ' Info ', 'WARN' → canonical level name.
+    Returns (level, invalid_value): unknown values fall back to INFO.
+    """
+    name = (value or 'INFO').strip().upper()
+    name = {'WARN': 'WARNING', 'FATAL': 'CRITICAL'}.get(name, name)
+    if name in LOG_LEVELS:
+        return name, None
+    return 'INFO', value
+
+
+LOG_LEVEL, _INVALID_LOG_LEVEL = parse_log_level(os.environ.get('LOG_LEVEL'))
+_log_level_warned = False
+
 
 def setup_logging():
     """Configures logging for the application"""
+    global _log_level_warned
     logging.basicConfig(
         level=getattr(logging, LOG_LEVEL),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -53,4 +67,9 @@ def setup_logging():
     logging.getLogger('telegram').setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-    return logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    if _INVALID_LOG_LEVEL is not None and not _log_level_warned:
+        _log_level_warned = True
+        logger.warning(f"Invalid LOG_LEVEL={_INVALID_LOG_LEVEL!r}, using INFO "
+                       f"(valid: {', '.join(LOG_LEVELS)})")
+    return logger

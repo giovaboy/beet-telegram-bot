@@ -40,3 +40,4 @@ def test_unwritable_import_state_is_reported(state_dir, caplog):
     state.chmod(0o400)
     assert isinstance(bot.build_persistence(), PicklePersistence)  # persistence still fine
     assert "beet_import_state.json" in caplog.text
+

@@ -12,7 +12,6 @@ from core.parsers import (
     clean_ansi_codes,
     extract_musicbrainz_id,
     extract_discogs_id,
-    parse_and_format_difference,
 )
 
 
@@ -114,41 +113,6 @@ def test_extract_discogs_id_not_found():
     text = "No Discogs ID here"
     result = extract_discogs_id(text)
     assert result is None
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Test: Difference Parsing
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-def test_parse_difference_field_change():
-    """Test parsing field change with arrow"""
-    diff = "≠ artist: Pink Floyd -> Pink Floyd, The"
-    result = parse_and_format_difference(diff)
-    
-    assert result['type'] == 'field_change'
-    assert result['field'] == 'artist'
-    assert result['old_value'] == 'Pink Floyd'
-    assert result['new_value'] == 'Pink Floyd, The'
-
-
-def test_parse_difference_track_change():
-    """Test parsing track change"""
-    diff = "≠ (#1) In the Flesh? (3:20) -> (#1) In the Flesh? (3:19)"
-    result = parse_and_format_difference(diff)
-    
-    assert result['type'] == 'field_change'
-    assert result['field'] == 'track'
-    assert '(3:20)' in result['old_value']
-    assert '(3:19)' in result['new_value']
-
-
-def test_parse_difference_missing():
-    """Test parsing missing items"""
-    diff = "missing tracks"
-    result = parse_and_format_difference(diff)
-    
-    assert result['type'] == 'missing'
-    assert 'tracks' in result['field']
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

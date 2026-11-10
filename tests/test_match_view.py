@@ -12,7 +12,7 @@ import pytest
 import core.beet_manager as beet_manager
 import ui.messages as ui_messages
 from core.match_details import classify_track, length_seconds, normalize_title, parse_match_details
-from core.parsers import char_diff, clean_ansi_codes, parse_beet_output
+from core.parsers import clean_ansi_codes, parse_beet_output
 from tests.markdown_v2 import markdown_v2_errors
 from ui.match_view import expandable_quote, format_match_body, group_line, group_tracks, inline_diff, tracks_quote
 from ui.messages import format_import_status
@@ -146,8 +146,7 @@ def test_inline_diff_replacement_and_trimming():
 
 
 def test_strikethrough_uses_single_tilde():
-    old, new = char_diff('abc', 'abd')
-    assert '~~' not in old and '~' in old
+    assert inline_diff('a b', 'a') == 'a ~b~'   # MarkdownV2: ~x~, not ~~x~~
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -165,12 +164,12 @@ def test_status_message_is_valid(name):
     assert ('wraps long lines' in msg) == (name == 'wrapped')
 
 
-def test_status_without_details_uses_legacy_view():
+def test_status_without_details_shows_summary():
     result = {'status': 'single_match', 'path': '/downloads/x', 'single_match': {
-        'artist': 'A', 'album': 'B', 'similarity': 90.0, 'differences': ['≠ album: B -> C'],
-        'mb_url': None}}
+        'artist': 'A', 'album': 'B', 'year': '1999', 'similarity': 90.0, 'source': 'musicbrainz',
+        'differences': ['≠ album: B -> C'], 'mb_url': None}}
     msg = format_import_status(result)
-    assert 'Differences' in msg and '**>' not in msg
+    assert 'Match 90%' in msg and '🎤 A' in msg and '📅 1999' in msg and '**>' not in msg
     assert markdown_v2_errors(msg) == []
 
 
@@ -198,8 +197,8 @@ def test_tracks_quote_keeps_everything_when_it_fits():
     assert tracks_quote([track], 1000) == expandable_quote(['📝 \\#1 A ~b~ __*c*__'])
 
 
-def test_no_details_returns_none():
-    assert format_match_body({'artist': 'A'}) is None
+def test_no_details_returns_summary():
+    assert format_match_body({'artist': 'A'}).startswith('📊 *Match ?%*')
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

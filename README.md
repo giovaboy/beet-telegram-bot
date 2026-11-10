@@ -117,8 +117,7 @@ CUSTOM_COMMANDS=[{"cmd": "stats", "action": "beet stats", "desc": "Check library
 
 # Bot Configuration
 LANGUAGE=en                       # en | it
-LOG_LEVEL=INFO                    # DEBUG | INFO | WARNING | ERROR
-DIFF_STYLE=smart                  # char | word | smart | simple
+LOG_LEVEL=INFO                    # DEBUG | INFO | WARNING | ERROR (any case; invalid → INFO)
 
 # Beet Behavior
 BEET_DEBUG_MODE=false             # Show verbose beet output
@@ -403,9 +402,6 @@ Tracks · 27 changed
   arrives on one line with complete titles. This needs **beet 2.6 or later**;
   with older versions titles may be cut and the bot says so.
 
-`DIFF_STYLE` (`char` | `word` | `smart` | `simple`) only applies to the
-fallback view used when beet's output can't be parsed in detail.
-
 ### 🌍 Internationalization
 
 **Current Languages:**
@@ -512,14 +508,6 @@ All imports run with `--pretend` flag. Will break bot UI flow. Great for:
 - Testing new configurations
 - Verifying plugin behavior
 - Dry-run
-
-### Custom Diff Highlighting
-
-`DIFF_STYLE` only affects the fallback view (see *Import Previews*):
-
-```env
-DIFF_STYLE=smart   # char | word | smart | simple
-```
 
 ### Network Configuration
 

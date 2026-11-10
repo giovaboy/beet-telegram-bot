@@ -293,14 +293,23 @@ def _similarity(value) -> str:
     return f"{value:.1f}".rstrip('0').rstrip('.') if isinstance(value, float) else str(value)
 
 
-def format_match_body(match: Dict[str, Any], budget: int = DEFAULT_BUDGET) -> Optional[str]:
-    """
-    MarkdownV2 description of a single match, or None when beet's output could
-    not be parsed into details (the caller then uses the legacy rendering).
-    """
-    details = (match or {}).get('details') or {}
+def _summary_only(match: Dict[str, Any]) -> str:
+    """When beet's match block could not be parsed: what the summary parser found."""
+    out = [t('match.header', similarity=esc(_similarity(match.get('similarity'))),
+             source=esc(match.get('source') or '?'))]
+    out.append(f"🎤 {esc(match.get('artist') or '?')}")
+    out.append(f"💿 {esc(match.get('album') or '?')}")
+    if match.get('year'):
+        out.append(f"📅 {esc(match['year'])}")
+    return '\n'.join(out)
+
+
+def format_match_body(match: Dict[str, Any], budget: int = DEFAULT_BUDGET) -> str:
+    """MarkdownV2 description of a single match."""
+    match = match or {}
+    details = match.get('details') or {}
     if not details.get('found'):
-        return None
+        return _summary_only(match)
 
     disambig = list(details.get('disambig') or [])
     source = match.get('source') or ''

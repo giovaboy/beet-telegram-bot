@@ -2,8 +2,7 @@
 Telegram message formatting (refactored for unified import model)
 """
 from pathlib import Path
-from core.parsers import format_difference_with_diff
-from config import setup_logging, DIFF_STYLE
+from config import setup_logging
 from i18n.translations import t
 from telegram.helpers import escape_markdown
 from core.plugin_detector import has_discogs_plugin
@@ -12,7 +11,6 @@ from ui.match_view import format_match_body
 logger = setup_logging()
 
 # 🎯 SAFETY LIMITS: Prevent messages from becoming too long
-MAX_DIFFERENCES_SHOWN = 30
 MAX_CANDIDATES_SHOWN = 10
 MAX_OUTPUT_LINES = 15
 
@@ -212,51 +210,8 @@ def format_import_status(result):
 
     # --- Single Match ---
     single = result.get('single_match')
-    body = format_match_body(single) if single else None
-    if single and body:
-        msg += body + "\n"
-        msg += _match_links(single)
-        msg += "\n" + t('status.ask_confirm') + "\n"
-
-    elif single:
-        # Legacy rendering, used when beet's output could not be parsed in detail
-        # Get values with None handling
-        raw_similarity = single.get('similarity')
-        raw_artist = single.get('artist')
-        raw_album = single.get('album')
-        raw_year = single.get('year')
-
-        similarity_display = raw_similarity if raw_similarity is not None else '?'
-        artist_display = raw_artist if raw_artist is not None else '?'
-        album_display = raw_album if raw_album is not None else '?'
-        year_display = raw_year if raw_year is not None else '?'
-
-        single_similarity = escape_markdown(str(similarity_display), version=2)
-        single_artist = escape_markdown(str(artist_display), version=2)
-        single_album = escape_markdown(str(album_display), version=2)
-        single_year = escape_markdown(str(year_display), version=2)
-
-        msg += f"🎯 *{t('status.single_match', similarity=single_similarity)}*\n"
-        msg += f"🎤 {t('fields.artist', artist=single_artist)}\n"
-        msg += f"💿 {t('fields.album', album=single_album)}\n"
-        msg += f"📅 {t('fields.year', year=single_year)}\n"
-
-        if single.get('differences'):
-            msg += "\n⚠️ *" + t('status.differences') + "*\n"
-
-            # 🎯 LIMIT: Show only first N differences
-            differences = single['differences'][:MAX_DIFFERENCES_SHOWN]
-
-            for diff in differences:
-                formatted = format_difference_with_diff(diff, style=DIFF_STYLE)
-                msg += formatted + "\n"
-
-            # Show count if truncated
-            total_diffs = len(single.get('differences', []))
-            if total_diffs > MAX_DIFFERENCES_SHOWN:
-                remaining = total_diffs - MAX_DIFFERENCES_SHOWN
-                msg += f"\n{t('fields.more_diff', remaining=remaining)}\n"
-
+    if single:
+        msg += format_match_body(single) + "\n"
         msg += _match_links(single)
         msg += "\n" + t('status.ask_confirm') + "\n"
 

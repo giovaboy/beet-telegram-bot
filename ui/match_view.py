@@ -2,13 +2,15 @@
 MarkdownV2 view of a beet match (see core/match_details.py for the data).
 
 Layout:
-    🎯 Match 76.3% · MusicBrainz
+    📊 Match 76.3% · MusicBrainz
     🎤 artist / 💿 album / 📀 media · year · label
     ⚖️ what beet penalized
     Album tags: current → new (word diff)
     Tracks: counters, missing / unmatched lists (always visible),
-    then every changed track inside an expandable block quote.
+    then every changed track inside an expandable block quote; movements of
+    the same work with the same change are shown as one line ("#8–11 …").
 """
+import re
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional
 
@@ -44,24 +46,53 @@ def _word_key(word: str) -> str:
     return word_key(word) or '·'  # punctuation-only tokens ("-", "–") are all alike
 
 
-def inline_diff(old: str, new: str, context: int = CONTEXT_WORDS) -> str:
+def _word_ops(a: List[str], b: List[str]):
+    return SequenceMatcher(None, [_word_key(w) for w in a], [_word_key(w) for w in b],
+                           autojunk=False).get_opcodes()
+
+
+def added(text: str) -> str:
+    """Added words: bold + underline (bold alone is hard to spot on dark themes)."""
+    return f"__*{esc(text)}*__"
+
+
+def removed(text: str) -> str:
+    return f"~{esc(text)}~"
+
+
+def _equal_words(b: List[str], j1: int, j2: int, vary) -> List[str]:
+    """Unchanged words; those in the `vary` range collapse into a single '…'."""
+    words = []
+    for j in range(j1, j2):
+        if vary and vary[0] <= j < vary[1]:
+            if not words or words[-1] != '…':
+                words.append('…')
+        else:
+            words.append(b[j])
+    return words
+
+
+def inline_diff(old: str, new: str, context: int = CONTEXT_WORDS, vary=None) -> str:
     """
-    One-line word diff: ~removed~ *added*, unchanged words in plain text
+    One-line word diff: ~removed~ __*added*__, unchanged words in plain text
     (shown as in the new title). Case/punctuation-only differences are not
     highlighted. Long unchanged runs are shortened to `context` words around
     each change.
+
+    `vary` is a (start, end) range of word positions in `new` that differ
+    between the tracks of a group (the movement names): shown as one '…'.
     """
     a, b = (old or '').split(), (new or '').split()
-    ops = SequenceMatcher(None, [_word_key(w) for w in a], [_word_key(w) for w in b],
-                          autojunk=False).get_opcodes()
+    ops = _word_ops(a, b)
     # Shorten only long lines: in short ones the unchanged words (e.g. the
     # movement name of a classical track) are what tells tracks apart.
-    removed = sum(len(' '.join(a[i1:i2])) for tag, i1, i2, _, _ in ops if tag in ('delete', 'replace'))
-    shorten_runs = len(' '.join(b)) + removed > MAX_UNTRIMMED_DIFF
+    removed_len = sum(len(' '.join(a[i1:i2])) for tag, i1, i2, _, _ in ops if tag in ('delete', 'replace'))
+    shown_len = len(' '.join(_equal_words(b, 0, len(b), vary)))  # after collapsing `vary`
+    shorten_runs = shown_len + removed_len > MAX_UNTRIMMED_DIFF
     parts = []
     for n, (tag, i1, i2, j1, j2) in enumerate(ops):
         if tag == 'equal':
-            words = b[j1:j2]
+            words = _equal_words(b, j1, j2, vary)
             first, last = n == 0, n == len(ops) - 1
             # Only shorten when it actually saves a few words
             if len(ops) == 1 or not shorten_runs:
@@ -74,21 +105,21 @@ def inline_diff(old: str, new: str, context: int = CONTEXT_WORDS) -> str:
                 text = ' '.join(words[:context]) + ' … ' + ' '.join(words[-context:])
             else:
                 text = ' '.join(words)
-            parts.append(esc(text))
+            parts.append(esc(re.sub(r'…(?: …)+', '…', text)))
             continue
         if i2 > i1:
-            parts.append(f"~{esc(' '.join(a[i1:i2]))}~")
+            parts.append(removed(' '.join(a[i1:i2])))
         if j2 > j1:
-            parts.append(f"*{esc(' '.join(b[j1:j2]))}*")
-    return ' '.join(parts)
+            parts.append(added(' '.join(b[j1:j2])))
+    return ' '.join(part for part in parts if part)
 
 
 def field_diff(old: str, new: str) -> str:
-    """Album-level value: word diff if similar, otherwise ~old~ → *new*."""
+    """Album-level value: word diff if similar, otherwise ~old~ → new."""
     ratio = SequenceMatcher(None, (old or '').casefold(), (new or '').casefold()).ratio()
     if ratio >= 0.5:
         return inline_diff(old, new)
-    return f"~{esc(shorten(old, 80))}~ → *{esc(new)}*"
+    return f"{removed(shorten(old, 80))} → {added(new)}"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -105,11 +136,11 @@ def track_line(track: Dict[str, Any]) -> str:
     if 'title' in kinds:
         icon, title = '📝', inline_diff(track['old_title'], track['new_title'])
     elif 'minor' in kinds:
-        icon, title = '✏️', esc(shorten(track['new_title'], 70))
+        icon, title = '✏️', esc(track['new_title'])
     elif 'index' in kinds:
-        icon, title = '🔢', esc(shorten(track['new_title'], 70))
+        icon, title = '🔢', esc(track['new_title'])
     else:
-        icon, title = '⏱️', esc(shorten(track['new_title'], 70))
+        icon, title = '⏱️', esc(track['new_title'])
 
     line = f"{icon} {index} {title}"
     if 'length' in kinds:
@@ -117,14 +148,92 @@ def track_line(track: Dict[str, Any]) -> str:
     return line
 
 
-def _quote_lines(tracks: List[Dict[str, Any]]) -> List[str]:
-    lines, medium = [], None
+# ── Grouping movements of the same work with the same change ─────────
+
+def _work(title: str) -> Optional[str]:
+    """'Violin Sonata No. 5, Op. 24: II. Adagio' → 'Violin Sonata No. 5, Op. 24'."""
+    return title.rsplit(': ', 1)[0] if ': ' in title else None
+
+
+def _number(track: Dict[str, Any]) -> Optional[int]:
+    try:
+        return int(track['new_index'])
+    except (TypeError, ValueError):
+        return None
+
+
+def change_signature(track: Dict[str, Any]):
+    """What changed, independently of the words that stayed the same.
+    None for tracks that must always be shown alone (length/number changes)."""
+    kinds = track.get('kinds') or []
+    if kinds == ['minor']:
+        return ('minor',)
+    if kinds != ['title']:
+        return None
+    a, b = track['old_title'].split(), track['new_title'].split()
+    return tuple(
+        (tag, tuple(_word_key(w) for w in a[i1:i2]), tuple(_word_key(w) for w in b[j1:j2]))
+        for tag, i1, i2, j1, j2 in _word_ops(a, b) if tag != 'equal'
+    )
+
+
+def _can_join(group: List[Dict[str, Any]], track: Dict[str, Any]) -> bool:
+    first, prev = group[0], group[-1]
+    signature = change_signature(track)
+    work = _work(track['new_title'])
+    return (
+        signature is not None
+        and signature == change_signature(first)
+        and track.get('medium') == prev.get('medium')
+        and _number(prev) is not None and _number(track) == _number(prev) + 1
+        and work is not None and work == _work(first['new_title'])
+    )
+
+
+def group_tracks(tracks: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+    """Consecutive movements of the same work with exactly the same change."""
+    groups: List[List[Dict[str, Any]]] = []
     for track in tracks:
-        if track.get('medium') and track['medium'] != medium:
-            medium = track['medium']
-            lines.append(f"💿 *{esc(medium)}*")
-        lines.append(track_line(track))
-    return lines
+        if groups and _can_join(groups[-1], track):
+            groups[-1].append(track)
+        else:
+            groups.append([track])
+    return groups
+
+
+def _common_affixes(word_lists: List[List[str]]):
+    shortest = min(len(words) for words in word_lists)
+    prefix = 0
+    while prefix < shortest and len({words[prefix] for words in word_lists}) == 1:
+        prefix += 1
+    suffix = 0
+    while suffix < shortest - prefix and len({words[-1 - suffix] for words in word_lists}) == 1:
+        suffix += 1
+    return prefix, suffix
+
+
+def group_line(group: List[Dict[str, Any]]) -> str:
+    if len(group) == 1:
+        return track_line(group[0])
+    first = group[0]
+    index = esc(f"#{first['new_index']}–{group[-1]['new_index']}")
+    words = [track['new_title'].split() for track in group]
+    prefix, suffix = _common_affixes(words)
+    vary = (prefix, len(words[0]) - suffix)
+    if first['kinds'] == ['minor']:
+        return f"✏️ {index} {inline_diff(first['new_title'], first['new_title'], vary=vary)}"
+    return f"📝 {index} {inline_diff(first['old_title'], first['new_title'], vary=vary)}"
+
+
+def _quote_entries(tracks: List[Dict[str, Any]]):
+    """(line, number of tracks it covers) — medium headers cover none."""
+    entries, medium = [], None
+    for group in group_tracks(tracks):
+        if group[0].get('medium') and group[0]['medium'] != medium:
+            medium = group[0]['medium']
+            entries.append((f"💿 *{esc(medium)}*", 0))
+        entries.append((group_line(group), len(group)))
+    return entries
 
 
 def expandable_quote(lines: List[str]) -> str:
@@ -141,23 +250,25 @@ def tracks_quote(tracks: List[Dict[str, Any]], budget: int) -> str:
     def size(lines):
         return sum(len(line) + 2 for line in lines) + 5
 
-    lines = _quote_lines(tracks)
+    entries = _quote_entries(tracks)
+    lines = [line for line, _ in entries]
     if size(lines) <= budget:
         return expandable_quote(lines)
 
     significant = [tr for tr in tracks if tr.get('kinds') != ['minor']]
     hidden_minor = len(tracks) - len(significant)
-    lines = _quote_lines(significant)
+    entries = _quote_entries(significant)
+    lines = [line for line, _ in entries]
     note = [t('match.minor_hidden', count=hidden_minor)] if hidden_minor else []
 
     if size(lines + note) > budget:
-        kept, used = [], size(note) + 40
-        for line in lines:
+        kept, used, shown = [], size(note) + 40, 0
+        for line, count in entries:
             if used + len(line) + 2 > budget:
                 break
             kept.append(line)
             used += len(line) + 2
-        shown = sum(1 for line in kept if not line.startswith('💿'))
+            shown += count
         lines = kept + [t('match.more', count=len(significant) - shown)]
     return expandable_quote(lines + note) if lines or note else ''
 

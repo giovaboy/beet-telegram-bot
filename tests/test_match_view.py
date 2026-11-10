@@ -14,7 +14,7 @@ import ui.messages as ui_messages
 from core.match_details import classify_track, length_seconds, normalize_title, parse_match_details
 from core.parsers import char_diff, clean_ansi_codes, parse_beet_output
 from tests.markdown_v2 import markdown_v2_errors
-from ui.match_view import expandable_quote, format_match_body, inline_diff, tracks_quote
+from ui.match_view import expandable_quote, format_match_body, group_line, group_tracks, inline_diff, tracks_quote
 from ui.messages import format_import_status
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -137,11 +137,12 @@ def test_inline_diff_ignores_case_and_punctuation_noise():
 
 def test_inline_diff_replacement_and_trimming():
     assert inline_diff('Tzigane, M. 76', 'Tzigane') == 'Tzigane ~M\\. 76~'
+    assert inline_diff('A b', 'A b c') == 'A b __*c*__'   # additions: bold + underline
     old = 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen ' \
           'seventeen eighteen nineteen twenty OLD twentyone twentytwo'
     new = old.replace('OLD', 'NEW')
     diff = inline_diff(old, new)
-    assert diff.startswith('… ') and '~OLD~ *NEW*' in diff  # long line: leading words shortened
+    assert diff.startswith('… ') and '~OLD~ __*NEW*__' in diff  # long line: leading words shortened
 
 
 def test_strikethrough_uses_single_tilde():
@@ -194,7 +195,7 @@ def test_body_fits_budget_for_huge_albums():
 def test_tracks_quote_keeps_everything_when_it_fits():
     track = _track('A b', 'A c')
     track['kinds'] = classify_track(track)
-    assert tracks_quote([track], 1000) == expandable_quote(['📝 \\#1 A ~b~ *c*'])
+    assert tracks_quote([track], 1000) == expandable_quote(['📝 \\#1 A ~b~ __*c*__'])
 
 
 def test_no_details_returns_none():
@@ -255,3 +256,46 @@ def test_real_status_message(real):
     msg = format_import_status(real)
     assert markdown_v2_errors(msg) == [] and len(msg) < 4000
     assert '📝 20 retitled · ✏️ 9 case/punctuation only' in msg
+
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Grouping movements of the same work with the same change
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def _movement(n, old, new, medium='CD 1', old_len='3:00', new_len='3:00'):
+    track = _track(old, new, old_len, new_len, str(n), str(n))
+    track['kinds'] = classify_track(track)
+    track['medium'] = medium
+    return track
+
+
+def test_real_album_is_grouped(real):
+    tracks = real['single_match']['details']['tracks']
+    groups = [[tr['new_index'] for tr in g] for g in group_tracks(tracks)]
+    assert groups == [['1'], ['2'], ['3'], ['4', '5', '6'], ['7'], ['8', '9', '10', '11'],
+                      ['12', '13', '14'], ['15'], ['16', '17', '18'], ['19', '20', '21'],
+                      ['22', '23', '24'], ['25', '26', '27'], ['28'], ['29']]
+    msg = format_import_status(real)
+    assert '📝 \\#8–11 Violin Sonata No\\. 5 in F major, Op\\. 24 __*\\(Spring\\):*__ …' in msg
+    assert '✏️ \\#16–18 Violin Sonata No\\. 2 in D minor, Op\\. 121: …' in msg
+    assert markdown_v2_errors(msg) == []
+
+
+def test_group_hides_movement_names_even_when_change_is_at_the_end():
+    group = [_movement(1, 'Concerto X: I. Andante (Live)', 'Concerto X: I. Andante'),
+             _movement(2, 'Concerto X: II. Allegro molto (Live)', 'Concerto X: II. Allegro molto')]
+    assert len(group_tracks(group)) == 1
+    assert group_line(group) == '📝 \\#1–2 Concerto X: … ~\\(Live\\)~'
+
+
+@pytest.mark.parametrize("second", [
+    _movement(3, 'Concerto X: II. Adagio (Live)', 'Concerto X: II. Adagio'),        # #2 missing in between
+    _movement(2, 'Concerto Y: II. Adagio (Live)', 'Concerto Y: II. Adagio'),        # another work
+    _movement(2, 'Concerto X: II. Adagio (Live)', 'Concerto X: II. Adagio', medium='CD 2'),
+    _movement(2, 'Concerto X: II. Adagio (Live)', 'Concerto X: II. Adagio', new_len='3:30'),  # length
+    _movement(2, 'Concerto X: II. Adagio (Studio)', 'Concerto X: II. Adagio'),      # other change
+])
+def test_tracks_that_are_not_grouped(second):
+    first = _movement(1, 'Concerto X: I. Andante (Live)', 'Concerto X: I. Andante')
+    assert len(group_tracks([first, second])) == 2

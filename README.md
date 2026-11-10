@@ -385,13 +385,20 @@ Tracks · 27 changed
   • #30 Violin Concerto in D, op. 35: II. Canzonetta (6:41)
 ▸ (tap to expand)
   💿 CD 1
-  📝 #1 Violin Sonata no. 9 in A, ~Major,~ op. 47 “Kreutzer”: I. Adagio…
-  ✏️ #2 …
+  📝 #1 Violin Sonata no. 9 in A, ~Major,~ op. 47 “Kreutzer”: I. Adagio sostenuto + – Presto
+  📝 #4–6 Violin Sonata: ~in G Minor, L. 140:~ …
+  💿 CD 2
+  📝 #8–11 Violin Sonata No. 5 in F major, Op. 24 + (Spring): …
+  ✏️ #16–18 Violin Sonata No. 2 in D minor, Op. 121: …
 ```
+
+(~struck~ = removed, *+* = added: shown in bold and underlined in Telegram)
 
 - Differences that are only case, quotes, dashes or accents are counted
   separately (✏️) and never highlighted, so real changes stand out.
 - Missing tracks and local files without a match are always listed.
+- Consecutive movements of the same work with exactly the same change are
+  shown as one line (`#8–11`), the movement names replaced by `…`.
 - The per-track list is an expandable quote; on very large releases the
   case/punctuation-only lines are left out first, then the list is cut.
 - beet is run with `NO_COLOR=1` and a wide `COLUMNS`, so every change

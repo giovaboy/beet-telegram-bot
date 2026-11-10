@@ -76,17 +76,20 @@ beet-telegram-bot/
 
 ### 3. Setup Project
 
+The image is published on Docker Hub as
+[`giovaboy/beet-telegram-bot`](https://hub.docker.com/r/giovaboy/beet-telegram-bot)
+(tags: `latest` and the short commit hash), built by GitHub Actions on every push
+to `main`. You only need the compose file and an `.env`:
+
 ```bash
-# Create project directory
-mkdir ~/beet-telegram-bot
-cd ~/beet-telegram-bot
-
-# Create all files from the structure
-# (copy contents from the codebase)
-
-# Create bot_state directory
+mkdir ~/beet-telegram-bot && cd ~/beet-telegram-bot
+curl -O https://raw.githubusercontent.com/giovaboy/beet-telegram-bot/main/beet-telegram-bot.yml
+curl -o .env https://raw.githubusercontent.com/giovaboy/beet-telegram-bot/main/.env.example
 mkdir -p bot_state
 ```
+
+To build the image yourself, clone the repository and use the commented `build:`
+section of the compose file instead of `image:` (target `production`).
 
 ### 4. Configure Environment
 
@@ -150,8 +153,8 @@ mkdir -p bot_state && sudo chown -R "$PUID:$PGID" bot_state
 ### 6. Start the Bot
 
 ```bash
-# Build and start
-docker-compose up -d --build
+# Pull and start
+docker compose -f beet-telegram-bot.yml up -d
 
 # View logs
 docker-compose logs -f beet-bot
@@ -897,13 +900,9 @@ docker exec beet-telegram-bot docker ps                               # Forbidde
 - Regularly update dependencies
 
 ```bash
-# Update bot
-git pull
-docker-compose down
-docker-compose up -d --build
-
-# Update dependencies
-pip install -U -r requirements.txt
+# Update bot (new image from Docker Hub)
+docker compose -f beet-telegram-bot.yml pull
+docker compose -f beet-telegram-bot.yml up -d
 ```
 
 ## 📈 Performance

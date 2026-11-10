@@ -30,9 +30,11 @@ services:
       - socket-proxy
 
   beet-telegram-bot:
-    build:
-      context: .
-      target: production
+    image: giovaboy/beet-telegram-bot:latest   # built by GitHub Actions on every push to main
+    # To build locally instead:
+    # build:
+    #   context: .
+    #   target: production
     container_name: beet-telegram-bot
     restart: unless-stopped
     user: "${PUID}:${PGID}"       # same user that owns the downloads folder

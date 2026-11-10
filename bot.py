@@ -3,6 +3,9 @@
 Beet Telegram Bot - Interactive music import manager
 Main entry point
 """
+import os
+from pathlib import Path
+
 from telegram import MenuButtonCommands, BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError
@@ -15,7 +18,7 @@ from telegram.ext import (
     PicklePersistence,
     filters,
 )
-from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, CUSTOM_COMMANDS, PERSISTENCE_FILE, setup_logging
+from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, CUSTOM_COMMANDS, PERSISTENCE_FILE, STATE_FILE, setup_logging
 from i18n.translations import t
 from core.beet_manager import BeetImportManager
 from core.plugin_detector import get_plugin_detector
@@ -50,6 +53,40 @@ async def on_error(update: object, context) -> None:
         logger.error(f"Could not notify the user about the error: {e}")
 
 
+def unusable_state_files(paths):
+    """
+    State files the bot cannot read/write: typically left owned by root after
+    switching the container to a regular user (PUID:PGID).
+    """
+    bad = []
+    for path in map(Path, paths):
+        if path.exists():
+            ok = os.access(path, os.R_OK | os.W_OK)
+        else:
+            ok = os.access(path.parent, os.W_OK | os.X_OK)
+        if not ok:
+            bad.append(str(path))
+    return bad
+
+
+def build_persistence():
+    """PicklePersistence, or None (with a clear log) if its file can't be used."""
+    bad = unusable_state_files([PERSISTENCE_FILE, STATE_FILE])
+    if bad:
+        logger.error(
+            f"❌ Cannot read/write {', '.join(bad)} as uid {os.getuid()}:{os.getgid()}. "
+            f"On the host, give the folder mounted at {Path(STATE_FILE).parent} to this user: "
+            f"sudo chown -R {os.getuid()}:{os.getgid()} <that folder>  — then restart the bot."
+        )
+    if PERSISTENCE_FILE in bad:
+        logger.error("⚠️ Running WITHOUT persistence: panels and lists are lost on restart.")
+        return None
+    return PicklePersistence(
+        filepath=PERSISTENCE_FILE,
+        store_data=PersistenceInput(bot_data=False, chat_data=False, user_data=True, callback_data=False),
+    )
+
+
 def main():
     """Starts the bot"""
     if not TELEGRAM_TOKEN:
@@ -67,13 +104,13 @@ def main():
 
     # Keep per-chat state (active panel, list snapshot, pending prompts) across restarts,
     # so buttons shown before a restart keep working instead of breaking the flow.
-    persistence = PicklePersistence(
-        filepath=PERSISTENCE_FILE,
-        store_data=PersistenceInput(bot_data=False, chat_data=False, user_data=True, callback_data=False),
-    )
+    persistence = build_persistence()
     # Updates are processed one at a time (PTB default): a click is always
     # evaluated against the panel as left by the previous one.
-    app = Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).build()
+    builder = Application.builder().token(TELEGRAM_TOKEN)
+    if persistence:
+        builder = builder.persistence(persistence)
+    app = builder.build()
     app.add_error_handler(on_error)
 
     # Wrapper functions to pass the manager instance

@@ -129,27 +129,22 @@ TZ=America/New_York               # Timezone
 
 ### 5. Configure Docker Compose
 
-Edit `docker-compose.yml` to match your paths:
+Use [`beet-telegram-bot.yml`](beet-telegram-bot.yml) as a starting point and set your
+paths in `.env`. The downloads and library folders must be mounted at the same paths
+as in the beets container.
 
-```yaml
-volumes:
-  # Map your actual import directory
-  - /home/user/imports:/downloads
-  
-  # Map your music library (read-only recommended)
-  - /home/user/Music:/music:ro
-  
-  # Bot state persistence
-  - ./bot_state:/app/bot_state
-```
+The bot never touches the Docker socket: it reaches beets through
+[socket-proxy](https://github.com/wollomatic/socket-proxy), which only lets
+`docker exec` into the beets container through (see *Security* below).
 
-If your beets container is on a different network:
+Before the first start, on the host:
 
-```yaml
-networks:
-  beet-network:
-    external: true
-    name: your_existing_network
+```bash
+# Group that owns the Docker socket → DOCKER_GID in .env
+stat -c '%g' /var/run/docker.sock
+
+# The bot runs as PUID:PGID: its state folder must belong to that user
+mkdir -p bot_state && sudo chown -R "$PUID:$PGID" bot_state
 ```
 
 ### 6. Start the Bot
@@ -876,9 +871,24 @@ except SpecificException as e:
 - No external ports needed
 
 ### Docker Security
-- Runs as non-root user (`PUID`/`PGID`)
-- Read-only mounts where possible
-- Minimal attack surface
+- The bot runs as a regular user (`PUID`/`PGID`), not root
+- No Docker socket in the bot container: it talks to a
+  [socket-proxy](https://github.com/wollomatic/socket-proxy) that allows only the
+  API calls of `docker exec` into the beets container (`BEET_CONTAINER`).
+  Everything else (`docker ps`, `docker run`, exec into other containers...) is
+  refused, so a compromised bot cannot take over the host
+- The proxy mounts the socket read-only, runs unprivileged with a read-only
+  filesystem, and only accepts connections from the bot on an internal network
+- Images and metadata files whose real path is outside the downloads folder
+  (symlinks) are never sent to the chat
+
+Check the setup after starting the stack:
+
+```bash
+docker exec beet-telegram-bot docker exec beets beet version          # works
+docker exec beet-telegram-bot sh -c 'echo ok | docker exec -i beets cat'  # prints "ok"
+docker exec beet-telegram-bot docker ps                               # Forbidden
+```
 
 ### Recommendations
 - Don't share your bot token

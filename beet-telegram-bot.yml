@@ -1,18 +1,50 @@
 services:
+  # Only component that touches the Docker socket (read-only). It lets through
+  # nothing but `docker exec` into the beets container: everything else
+  # (docker ps, docker run, exec into other containers...) gets 403 Forbidden.
+  socket-proxy:
+    image: wollomatic/socket-proxy:1.13.2
+    container_name: beet-socket-proxy
+    restart: unless-stopped
+    user: "65534:${DOCKER_GID}"   # GID owning /var/run/docker.sock: stat -c '%g' /var/run/docker.sock
+    read_only: true
+    mem_limit: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    command:
+      - '-loglevel=info'          # 'debug' logs every blocked request (method + path)
+      - '-listenip=0.0.0.0'
+      - '-allowfrom=beet-telegram-bot'
+      # API calls made by `docker exec` (patterns are anchored automatically)
+      - '-allowHEAD=/_ping'
+      - '-allowGET=(/v1\.\d+)?/(_ping|containers/${BEET_CONTAINER}/json|exec/[0-9a-f]{64}/json)'
+      - '-allowPOST=(/v1\.\d+)?/(containers/${BEET_CONTAINER}/exec|exec/[0-9a-f]{64}/start)'
+      - '-watchdoginterval=3600'
+      - '-stoponwatchdog'
+      - '-shutdowngracetime=5'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+
   beet-telegram-bot:
     build:
       context: .
       target: production
     container_name: beet-telegram-bot
     restart: unless-stopped
+    user: "${PUID}:${PGID}"       # same user that owns the downloads folder
+    depends_on:
+      - socket-proxy
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - TZ=${TZ}
+      - HOME=/tmp                 # the docker client looks for ~/.docker
+      - DOCKER_HOST=tcp://socket-proxy:2375
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      # IMPORTANT: Name of the container where 'beet' runs
-      # The bot will use 'docker exec' to run commands
+      # Name of the container where 'beet' runs (the bot uses 'docker exec')
       - BEET_CONTAINER=${BEET_CONTAINER}
       - BEET_USER=${BEET_USER:-}
       - IMPORT_PATH=/downloads
@@ -20,12 +52,15 @@ services:
       - LANGUAGE=en
       - 'CUSTOM_COMMANDS=[{"cmd": "check", "action": "beet stats"}, {"cmd": "missing", "action": "beet missing"}, {"cmd": "config", "action": "beet config"}]'
     volumes:
-      # Folder where files are placed
-      # MUST be the same as the beet container
-      #- /path/to/imports:/downloads
+      # Same folders, at the same paths, as in the beets container
       - ${MUSIC_LIBRARY}:/music:ro
       - ${MUSIC_DOWNLOADS}:/downloads
-      # Docker Socket to execute commands in the beet container
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Bot state (persistent)
+      # Bot state (persistent): must be owned by PUID:PGID
       - ./bot_state:/tmp
+    networks:
+      - default                   # internet access for Telegram
+      - socket-proxy
+
+networks:
+  socket-proxy:
+    internal: true                # only the bot and the proxy, no outside access
